@@ -130,7 +130,7 @@ const {useState,useEffect,useMemo} = React;
 // Al crear el proyecto de Supabase se pegan aquí la URL y la anon key.
 const SUPABASE_URL = 'https://rstcqffwrxrstwwfxrvj.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_m6tJglfiuQRBiFvrElqngQ_VHQi4jfF';
-const DEMO = !SUPABASE_URL;
+const DEMO = !SUPABASE_URL || /[?&]demo\b/.test(location.search);   // abrir con ?demo para ensayar sin tocar datos reales
 const sb = DEMO ? null : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ───────── Utilidades ─────────
@@ -159,6 +159,24 @@ const CATS = {
 };
 const TIPOS_DEUDA = {tarjeta:['💳','Tarjeta de crédito'],credito:['🏦','Crédito'],prestamo:['🤝','Préstamo'],otro:['📄','Otra']};
 const TABLAS = ['movimientos','presupuestos','deudas','metas','meta_aportes','categorias'];
+
+// Ajuste de saldo: movimiento con categoría reservada. Mueve la plata de banco/efectivo
+// pero NO cuenta como ingreso ni como gasto del mes.
+const AJUSTE = 'Ajuste';
+const esAjuste = m => m.categoria===AJUSTE;
+// Plata que hay en banco y en efectivo: acumulado de todo lo anotado hasta el mes dado (sin mes = todo).
+// Las compras con tarjeta no tocan el saldo (lo toca el abono); el ahorro se cuenta como salido del banco.
+function saldos(datos,ambito,hastaMes){
+  const ok=f=>!hastaMes||f.slice(0,7)<=hastaMes;
+  let banco=0, efectivo=0;
+  datos.movimientos.forEach(m=>{
+    if(m.ambito!==ambito||!ok(m.fecha)||m.medio==='tarjeta') return;
+    const v=(m.tipo==='ingreso'?1:-1)*Number(m.monto);
+    if(m.medio==='efectivo') efectivo+=v; else banco+=v;
+  });
+  banco-=suma(datos.meta_aportes.filter(a=>a.ambito===ambito&&ok(a.fecha)));
+  return {banco,efectivo};
+}
 
 // ───────── Demo: dos personas y datos de ejemplo en localStorage ─────────
 const DEMO_USERS = [{id:'u1',nombre:'Él'},{id:'u2',nombre:'Ella'}];
@@ -405,6 +423,7 @@ function App(){
   const catsDe=(amb,tipo)=>[...CATS[amb][tipo],...datos.categorias.filter(c=>c.ambito===amb&&c.tipo===tipo).map(c=>[c.emoji||'🏷️',c.nombre])];
   const emojiDe=(nombre,m)=>{
     if(m&&m.tipo==='abono') return '💳';
+    if(nombre===AJUSTE) return '⚖️';
     for(const a of ['personal','casa']) for(const t of ['gasto','ingreso']){ const c=catsDe(a,t).find(c=>c[1]===nombre); if(c) return c[0]; }
     return '🏷️';
   };
@@ -446,6 +465,7 @@ function App(){
     {sheet&&sheet.tipo==='deuda'&&<DeudaSheet {...P} deuda={sheet.deuda} onClose={cerrar}/>}
     {sheet&&sheet.tipo==='abono'&&<AbonoSheet {...P} deuda={sheet.deuda} onClose={cerrar}/>}
     {sheet&&sheet.tipo==='meta'&&<MetaSheet {...P} meta={sheet.meta} onClose={cerrar}/>}
+    {sheet&&sheet.tipo==='ajuste'&&<AjusteSheet {...P} onClose={cerrar}/>}
     {sheet&&sheet.tipo==='aporte'&&<AporteSheet {...P} meta={sheet.meta} onClose={cerrar}/>}
     {sheet&&sheet.tipo==='ajustes'&&<Ajustes {...P} onClose={cerrar} onSalir={salir} onNombre={n=>setCtx(c=>({...c,perfil:{...c.perfil,nombre:n},miembros:c.miembros.map(m=>m.id===uid?{...m,nombre:n}:m)}))}/>}
     {toast&&<div className="toast">{toast}</div>}
@@ -454,7 +474,7 @@ function App(){
 
 // ───────── Resumen ─────────
 function FilaMov({m,P,onClick}){
-  const sub=[m.categoria, P.ambito==='casa'&&m.tipo!=='ingreso'?'pagó '+P.nombreDe(m.pagado_por):null, m.medio==='tarjeta'?'con tarjeta':null].filter(Boolean).join(' · ');
+  const sub=[m.categoria, P.ambito==='casa'&&m.tipo!=='ingreso'?'pagó '+P.nombreDe(m.pagado_por):null, m.medio==='tarjeta'?'con tarjeta':null, esAjuste(m)?(m.medio==='efectivo'?'efectivo':'banco'):null].filter(Boolean).join(' · ');
   return <div className="fila" onClick={onClick}>
     <div className="em">{P.emojiDe(m.categoria,m)}</div>
     <div className="tx"><b>{m.descripcion||m.categoria}</b><span>{sub}</span></div>
@@ -465,12 +485,16 @@ function Resumen(P){
   const {datos,ambito,mes,ctx}=P;
   const movs=datos.movimientos.filter(m=>m.ambito===ambito);
   const delMes=movs.filter(m=>m.fecha.slice(0,7)===mes);
-  const gastos=delMes.filter(m=>m.tipo==='gasto'), ingresos=suma(delMes.filter(m=>m.tipo==='ingreso'));
+  const reales=delMes.filter(m=>!esAjuste(m));
+  const gastos=reales.filter(m=>m.tipo==='gasto'), ingresos=suma(reales.filter(m=>m.tipo==='ingreso'));
+  const ajustesMes=suma(delMes.filter(esAjuste),m=>m.tipo==='ingreso'?m.monto:-m.monto);
   const totGastos=suma(gastos), abonos=suma(delMes.filter(m=>m.tipo==='abono')), conTarjeta=suma(gastos.filter(m=>m.deuda_id));
   const ahorro=suma(datos.meta_aportes.filter(a=>a.ambito===ambito&&a.fecha.slice(0,7)===mes));
   // Lo que realmente salió del bolsillo: las compras con tarjeta se pagan cuando se abona la tarjeta.
   const salio=totGastos-conTarjeta+abonos;
   const balance=ingresos-salio-ahorro;
+  const ingEfectivo=suma(reales.filter(m=>m.tipo==='ingreso'&&m.medio==='efectivo')), ingBanco=ingresos-ingEfectivo;
+  const sal=saldos(datos,ambito,mes), mesHoy=hoyStr().slice(0,7);
   const porCat=Object.entries(gastos.reduce((o,m)=>{o[m.categoria]=(o[m.categoria]||0)+Number(m.monto);return o;},{})).sort((a,b)=>b[1]-a[1]);
   const pagadores=ctx.miembros.map(mb=>({...mb,total:suma(delMes.filter(m=>m.tipo!=='ingreso'&&m.pagado_por===mb.id))}));
   const totPag=suma(pagadores,p=>p.total);
@@ -479,7 +503,7 @@ function Resumen(P){
   const deudas=datos.deudas.filter(d=>d.ambito===ambito&&d.activa!==false);
   const totDeuda=suma(deudas,P.saldoDeuda);
   const metas=datos.metas.filter(m=>m.ambito===ambito);
-  const seis=[5,4,3,2,1,0].map(i=>{const mm=mesMover(mes,-i);return {mm,v:suma(movs.filter(m=>m.tipo==='gasto'&&m.fecha.slice(0,7)===mm))};});
+  const seis=[5,4,3,2,1,0].map(i=>{const mm=mesMover(mes,-i);return {mm,v:suma(movs.filter(m=>m.tipo==='gasto'&&!esAjuste(m)&&m.fecha.slice(0,7)===mm))};});
   const max6=Math.max(1,...seis.map(s=>s.v));
   const ultimos=[...delMes].sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.created_at||'').localeCompare(a.created_at||'')).slice(0,5);
   const hayIngresos=ingresos>0||ambito==='personal';
@@ -490,14 +514,26 @@ function Resumen(P){
         <div className="lbl">Te queda este mes</div>
         <div className={'big '+(balance<0?'neg':'')}>{fmt(balance)}</div>
         <div className="kpis">
-          <div className="kpi"><span>Ingresos</span><b className="pos">{fmt(ingresos)}</b></div>
+          <div className="kpi"><span>Ingresos</span><b className="pos">{fmt(ingresos)}</b>
+            {ingresos>0&&<span style={{marginTop:3}}>🏦 {fmt(ingBanco)} · 💵 {fmt(ingEfectivo)}</span>}</div>
           <div className="kpi"><span>Gastos</span><b>{fmt(totGastos)}</b></div>
         </div>
+        {ambito==='personal'&&<>
+          <div className="lbl" style={{marginTop:14,marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span>{mes>=mesHoy?'Plata que tienes':'Plata al cierre de '+mesNombre(mes)}</span>
+            <button className="btn mini sec" onClick={()=>P.abrir({tipo:'ajuste'})}>⚖️ Ajustar</button>
+          </div>
+          <div className="kpis">
+            <div className="kpi"><span>🏦 En banco</span><b className={sal.banco<0?'neg':''}>{fmt(sal.banco)}</b></div>
+            <div className="kpi"><span>💵 En efectivo</span><b className={sal.efectivo<0?'neg':''}>{fmt(sal.efectivo)}</b></div>
+          </div>
+        </>}
       </> : <>
         <div className="lbl">Gastos de la casa este mes</div>
         <div className="big">{fmt(salio)}</div>
       </>}
-      {(abonos>0||ahorro!==0||conTarjeta>0)&&<div className="nota">
+      {(abonos>0||ahorro!==0||conTarjeta>0||ajustesMes!==0)&&<div className="nota">
+        {ajustesMes!==0&&<>Ajustes de saldo este mes: {ajustesMes>0?'+':''}{fmt(ajustesMes)} (plata que no estaba anotada; no cuenta como ingreso ni gasto). </>}
         {abonos>0&&<>Pagos a deudas {fmt(abonos)}. </>}
         {ahorro!==0&&<>Ahorro {fmt(ahorro)}. </>}
         {conTarjeta>0&&<>Compras con tarjeta {fmt(conTarjeta)} (se descuentan cuando pagues la tarjeta).</>}
@@ -573,42 +609,78 @@ function MovSheet({mov,onClose,...P}){
   const [f,setF]=useState(()=>mov?{...mov}:{ambito:P.ambito,tipo:'gasto',monto:0,categoria:'',descripcion:'',fecha:hoyStr().slice(0,7)===P.mes?hoyStr():P.mes+'-01',pagado_por:uid,medio:'debito',deuda_id:null});
   const [busy,setBusy]=useState(false);
   const set=p=>setF(x=>({...x,...p}));
-  const esAbono=f.tipo==='abono';
-  const cats=esAbono?[]:P.catsDe(f.ambito,f.tipo);
+  const esAbono=f.tipo==='abono', esAj=!!mov&&esAjuste(mov), fijo=esAbono||esAj;
+  const cats=fijo?[]:P.catsDe(f.ambito,f.tipo);
   // Una compra personal solo puede ir a una tarjeta personal; una de la casa, a cualquiera que yo vea.
   const tarjetas=datos.deudas.filter(d=>d.tipo==='tarjeta'&&d.activa!==false&&(f.ambito==='casa'||d.ambito==='personal'));
   const medioVal=f.medio==='tarjeta'&&f.deuda_id?'tc:'+f.deuda_id:f.medio;
   const setMedio=v=>v.startsWith('tc:')?set({medio:'tarjeta',deuda_id:v.slice(3)}):set({medio:v,deuda_id:null});
-  const ok=f.monto>0&&(esAbono||f.categoria);
+  const ok=f.monto>0&&(fijo||f.categoria);
   const guardar=async()=>{
     setBusy(true);
     const row={...f,descripcion:(f.descripcion||'').trim()||null};
-    if(f.tipo==='ingreso'){row.medio='debito';row.deuda_id=null;}
+    if(f.tipo==='ingreso'){row.medio=f.medio==='efectivo'?'efectivo':'debito';row.deuda_id=null;}
     if(f.ambito==='personal') row.pagado_por=uid;
     if(await P.guardar('movimientos',row)){P.aviso(mov?'Guardado':'Anotado ✓');onClose();} else setBusy(false);
   };
   const eliminar=async()=>{ if(confirm('¿Borrar este movimiento?')&&await P.borrar('movimientos',mov.id)){P.aviso('Borrado');onClose();} };
-  return <Sheet titulo={esAbono?'Pago a deuda':mov?'Editar movimiento':'Nuevo movimiento'} onClose={onClose}>
-    {!esAbono&&<Seg value={f.tipo} onChange={t=>set({tipo:t,categoria:''})} ops={[['gasto','Gasto'],['ingreso','Ingreso']]}/>}
+  return <Sheet titulo={esAj?'Ajuste de saldo':esAbono?'Pago a deuda':mov?'Editar movimiento':'Nuevo movimiento'} onClose={onClose}>
+    {!fijo&&<Seg value={f.tipo} onChange={t=>set({tipo:t,categoria:''})} ops={[['gasto','Gasto'],['ingreso','Ingreso']]}/>}
+    {esAj&&<Seg value={f.tipo} onChange={t=>set({tipo:t})} ops={[['ingreso','Suma (+)'],['gasto','Resta (−)']]}/>}
     <div style={{marginTop:12}}><MontoInput grande autoFocus={!mov} value={f.monto} onChange={v=>set({monto:v})}/></div>
-    {!esAbono&&!mov&&<><label className="lab">¿De quién es?</label>
+    {!fijo&&!mov&&<><label className="lab">¿De quién es?</label>
       <Seg value={f.ambito} onChange={a=>set({ambito:a,categoria:'',deuda_id:null,medio:f.medio==='tarjeta'?'debito':f.medio})} ops={[['personal','👤 Mío'],['casa','🏠 De la casa']]}/></>}
-    {!esAbono&&<><label className="lab">Categoría</label>
+    {!fijo&&<><label className="lab">Categoría</label>
       <div className="chips">{cats.map(([e,n])=><button key={n} className={'chip'+(f.categoria===n?' on':'')} onClick={()=>set({categoria:n})}>{e} {n}</button>)}</div></>}
     <label className="lab">Descripción (opcional)</label>
     <input className="inp" value={f.descripcion||''} onChange={e=>set({descripcion:e.target.value})} placeholder={esAbono?'':'Ej: mercado del D1'}/>
     <div className="dos">
       <div><label className="lab">Fecha</label><input className="inp" type="date" value={f.fecha} onChange={e=>e.target.value&&set({fecha:e.target.value})}/></div>
-      {f.tipo==='gasto'&&<div><label className="lab">Pagado con</label>
+      {f.tipo==='gasto'&&!esAj&&<div><label className="lab">Pagado con</label>
         <select className="inp" value={medioVal} onChange={e=>setMedio(e.target.value)}>
           <option value="debito">Débito / transferencia</option><option value="efectivo">Efectivo</option>
           {tarjetas.map(t=><option key={t.id} value={'tc:'+t.id}>💳 {t.nombre}</option>)}
+        </select></div>}
+      {f.tipo==='ingreso'&&!esAj&&<div><label className="lab">¿Dónde entró?</label>
+        <select className="inp" value={f.medio==='efectivo'?'efectivo':'debito'} onChange={e=>set({medio:e.target.value,deuda_id:null})}>
+          <option value="debito">🏦 Banco</option><option value="efectivo">💵 Efectivo</option>
+        </select></div>}
+      {fijo&&<div><label className="lab">{esAj?'Cuenta':'Pagado con'}</label>
+        <select className="inp" value={f.medio==='efectivo'?'efectivo':'debito'} onChange={e=>set({medio:e.target.value})}>
+          <option value="debito">🏦 Banco</option><option value="efectivo">💵 Efectivo</option>
         </select></div>}
     </div>
     {f.ambito==='casa'&&f.tipo!=='ingreso'&&<><label className="lab">¿Quién pagó?</label>
       <Seg value={f.pagado_por} onChange={v=>set({pagado_por:v})} ops={ctx.miembros.map(m=>[m.id,m.id===uid?m.nombre+' (yo)':m.nombre])}/></>}
     <button className="btn" disabled={!ok||busy} onClick={guardar}>{busy?'Guardando…':'Guardar'}</button>
     {mov&&<button className="btn del" onClick={eliminar}>Borrar</button>}
+  </Sheet>;
+}
+
+// ───────── Ajuste de saldo ─────────
+// El usuario dice cuánta plata tiene de verdad y se anota la diferencia como "Ajuste".
+function AjusteSheet({onClose,...P}){
+  const calc=saldos(P.datos,'personal');
+  const [banco,setBanco]=useState(Math.max(0,calc.banco)), [efectivo,setEfectivo]=useState(Math.max(0,calc.efectivo)), [busy,setBusy]=useState(false);
+  const dB=banco-calc.banco, dE=efectivo-calc.efectivo;
+  const Dif=({d})=>d===0?<span className="dim">Cuadra ✓</span>:<span className={d>0?'pos':'neg'}>Ajuste de {d>0?'+':''}{fmt(d)}</span>;
+  const guardar=async()=>{
+    setBusy(true);
+    for(const [d,medio] of [[dB,'debito'],[dE,'efectivo']]){
+      if(d===0) continue;
+      if(!await P.guardar('movimientos',{ambito:'personal',tipo:d>0?'ingreso':'gasto',monto:Math.abs(d),categoria:AJUSTE,descripcion:'Ajuste de saldo',fecha:hoyStr(),pagado_por:P.uid,medio,deuda_id:null})){ setBusy(false); return; }
+    }
+    P.aviso('Saldos ajustados ✓'); onClose();
+  };
+  return <Sheet titulo="⚖️ Ajustar saldos" onClose={onClose}>
+    <div className="nota" style={{marginTop:0}}>Escribe cuánta plata tienes <b>de verdad</b> hoy. La diferencia con lo que calcula la app queda anotada como un ajuste, sin contar como ingreso ni gasto.</div>
+    <label className="lab">🏦 En el banco</label>
+    <MontoInput value={banco} onChange={setBanco}/>
+    <div className="nota" style={{marginTop:6,display:'flex',justifyContent:'space-between'}}><span>La app calcula {fmt(calc.banco)}</span><Dif d={dB}/></div>
+    <label className="lab">💵 En efectivo</label>
+    <MontoInput value={efectivo} onChange={setEfectivo}/>
+    <div className="nota" style={{marginTop:6,display:'flex',justifyContent:'space-between'}}><span>La app calcula {fmt(calc.efectivo)}</span><Dif d={dE}/></div>
+    <button className="btn" disabled={busy||(dB===0&&dE===0)} onClick={guardar}>{busy?'Guardando…':'Guardar ajuste'}</button>
   </Sheet>;
 }
 
@@ -725,17 +797,20 @@ function DeudaSheet({deuda,onClose,...P}){
   </Sheet>;
 }
 function AbonoSheet({deuda,onClose,...P}){
-  const [monto,setMonto]=useState(Math.min(Number(deuda.cuota)||0,Math.max(0,deuda.saldo))), [fecha,setFecha]=useState(hoyStr()), [quien,setQuien]=useState(P.uid), [busy,setBusy]=useState(false);
+  const [monto,setMonto]=useState(Math.min(Number(deuda.cuota)||0,Math.max(0,deuda.saldo))), [fecha,setFecha]=useState(hoyStr()), [quien,setQuien]=useState(P.uid), [medio,setMedio]=useState('debito'), [busy,setBusy]=useState(false);
   const guardar=async()=>{
     setBusy(true);
-    const r=await P.guardar('movimientos',{ambito:deuda.ambito,tipo:'abono',monto,categoria:'Pago de deuda',descripcion:deuda.nombre,fecha,pagado_por:deuda.ambito==='casa'?quien:P.uid,medio:'debito',deuda_id:deuda.id});
+    const r=await P.guardar('movimientos',{ambito:deuda.ambito,tipo:'abono',monto,categoria:'Pago de deuda',descripcion:deuda.nombre,fecha,pagado_por:deuda.ambito==='casa'?quien:P.uid,medio,deuda_id:deuda.id});
     if(r){P.aviso('Abono anotado ✓');onClose();} else setBusy(false);
   };
   return <Sheet titulo={'Abonar a '+deuda.nombre} onClose={onClose}>
     <MontoInput grande autoFocus value={monto} onChange={setMonto}/>
     <div className="nota" style={{textAlign:'center'}}>Debes {fmt(deuda.saldo)} → quedaría en {fmt(deuda.saldo-monto)}</div>
-    <label className="lab">Fecha</label>
-    <input className="inp" type="date" value={fecha} onChange={e=>e.target.value&&setFecha(e.target.value)}/>
+    <div className="dos">
+      <div><label className="lab">Fecha</label><input className="inp" type="date" value={fecha} onChange={e=>e.target.value&&setFecha(e.target.value)}/></div>
+      <div><label className="lab">Pagado con</label>
+        <select className="inp" value={medio} onChange={e=>setMedio(e.target.value)}><option value="debito">🏦 Banco</option><option value="efectivo">💵 Efectivo</option></select></div>
+    </div>
     {deuda.ambito==='casa'&&<><label className="lab">¿Quién pagó?</label>
       <Seg value={quien} onChange={setQuien} ops={P.ctx.miembros.map(m=>[m.id,m.nombre])}/></>}
     <button className="btn" disabled={busy||!(monto>0)} onClick={guardar}>Anotar abono</button>
