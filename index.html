@@ -12,8 +12,8 @@
   <meta name="application-name" content="Finanzas">
   <meta name="apple-mobile-web-app-title" content="Finanzas">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="icon-512.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+  <link rel="apple-touch-icon" href="app-512.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="app-512.png">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root{
@@ -405,7 +405,8 @@ function Auth({onEntrar}){
     setBusy(false);
   };
   return <div className="auth">
-    <h1>💰 Finanzas de casa</h1>
+    <img src="app-192.png" alt="" width="84" height="84" style={{borderRadius:22,marginBottom:18}}/>
+    <h1>Finanzas de casa</h1>
     <p>{modo==='login'?'Entra con tu correo y contraseña.':'Crea tu cuenta. Cada uno tiene la suya.'}</p>
     <label className="lab">Correo</label>
     <input className="inp" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/>
