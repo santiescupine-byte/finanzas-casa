@@ -370,6 +370,21 @@ function Barra({pct,modo}){
   const cls = modo==='meta' ? 'ok' : pct>=100?'over':pct>=80?'warn':'';
   return <div className="bar"><i className={cls} style={{width:Math.max(0,Math.min(100,pct))+'%'}}/></div>;
 }
+// Confirmación propia (no la ventana nativa del navegador: hay navegadores que la bloquean y responde "no" sola).
+let _pedirConfirmacion=null;
+const confirmar = msg => new Promise(res=>_pedirConfirmacion?_pedirConfirmacion({msg,res}):res(false));
+function Confirmador(){
+  const [c,setC]=useState(null);
+  useEffect(()=>{ _pedirConfirmacion=setC; return ()=>{_pedirConfirmacion=null;}; },[]);
+  if(!c) return null;
+  const fin=v=>{ c.res(v); setC(null); };
+  return <div className="sheet-bg" style={{zIndex:50,alignItems:'center'}} onClick={()=>fin(false)}>
+    <div className="card" style={{maxWidth:340,margin:16}} onClick={e=>e.stopPropagation()}>
+      <div style={{fontSize:15,lineHeight:1.5,color:'var(--tb)'}}>{c.msg}</div>
+      <div className="dos"><button className="btn sec" onClick={()=>fin(false)}>Cancelar</button><button className="btn" onClick={()=>fin(true)}>Sí</button></div>
+    </div>
+  </div>;
+}
 function Vacio({e,children}){ return <div className="vacio"><span className="e">{e}</span>{children}</div>; }
 
 // ───────── Entrada ─────────
@@ -538,6 +553,7 @@ function App(){
     {sheet&&sheet.tipo==='aporte'&&<AporteSheet {...P} meta={sheet.meta} onClose={cerrar}/>}
     {sheet&&sheet.tipo==='ajustes'&&<Ajustes {...P} onClose={cerrar} onSalir={salir} onNombre={n=>setCtx(c=>({...c,perfil:{...c.perfil,nombre:n},miembros:c.miembros.map(m=>m.id===uid?{...m,nombre:n}:m)}))}/>}
     {toast&&<div className="toast">{toast}</div>}
+    <Confirmador/>
   </div>;
 }
 
@@ -700,7 +716,7 @@ function MovSheet({mov,inicial,onGuardado,onClose,...P}){
     const r=await P.guardar('movimientos',row);
     if(r){ if(onGuardado) await onGuardado(r); P.aviso(mov?'Guardado':'Anotado ✓'); onClose(); } else setBusy(false);
   };
-  const eliminar=async()=>{ if(confirm('¿Borrar este movimiento?')&&await P.borrar('movimientos',mov.id)){P.aviso('Borrado');onClose();} };
+  const eliminar=async()=>{ if(await confirmar('¿Borrar este movimiento?')&&await P.borrar('movimientos',mov.id)){P.aviso('Borrado');onClose();} };
   return <Sheet titulo={esAj?'Ajuste de saldo':esAbono?'Pago a deuda':mov?'Editar movimiento':'Nuevo movimiento'} onClose={onClose}>
     {!fijo&&<Seg value={f.tipo} onChange={t=>set({tipo:t,categoria:''})} ops={[['gasto','Gasto'],['ingreso','Ingreso']]}/>}
     {esAj&&<Seg value={f.tipo} onChange={t=>set({tipo:t})} ops={[['ingreso','Suma (+)'],['gasto','Resta (−)']]}/>}
@@ -884,7 +900,7 @@ function DeudaSheet({deuda,onClose,...P}){
     row.nombre=f.nombre.trim(); row.tasa=f.tasa===''||f.tasa==null?null:Number(f.tasa); row.dia_pago=f.dia_pago===''||f.dia_pago==null?null:Math.min(31,Math.max(1,Number(f.dia_pago)));
     if(await P.guardar('deudas',row)) onClose(); else setBusy(false);
   };
-  const eliminar=async()=>{ if(confirm('¿Borrar "'+deuda.nombre+'"? Los pagos ya anotados quedan en tus movimientos.')&&await P.borrar('deudas',deuda.id)) onClose(); };
+  const eliminar=async()=>{ if(await confirmar('¿Borrar "'+deuda.nombre+'"? Los pagos ya anotados quedan en tus movimientos.')&&await P.borrar('deudas',deuda.id)) onClose(); };
   return <Sheet titulo={deuda?'Editar deuda':'Nueva deuda'} onClose={onClose}>
     <label className="lab">Tipo</label>
     <div className="chips">{Object.entries(TIPOS_DEUDA).map(([k,[e,n]])=><button key={k} className={'chip'+(f.tipo===k?' on':'')} onClick={()=>set({tipo:k})}>{e} {n}</button>)}</div>
@@ -964,7 +980,7 @@ function MetaSheet({meta,onClose,...P}){
   const set=p=>setF(x=>({...x,...p}));
   const aportes=meta?P.datos.meta_aportes.filter(a=>a.meta_id===meta.id).sort((a,b)=>b.fecha.localeCompare(a.fecha)):[];
   const guardar=async()=>{ setBusy(true); const {ahorrado,...row}=f; row.nombre=f.nombre.trim(); row.fecha_meta=f.fecha_meta||null; if(await P.guardar('metas',row)) onClose(); else setBusy(false); };
-  const eliminar=async()=>{ if(confirm('¿Borrar la meta "'+meta.nombre+'" y sus aportes?')&&await P.borrar('metas',meta.id)) onClose(); };
+  const eliminar=async()=>{ if(await confirmar('¿Borrar la meta "'+meta.nombre+'" y sus aportes?')&&await P.borrar('metas',meta.id)) onClose(); };
   return <Sheet titulo={meta?'Editar meta':'Nueva meta'} onClose={onClose}>
     <div className="chips">{['🎯','✈️','🛟','🏠','🚗','🎓','💍','👶','🎄','💻'].map(e=><button key={e} className={'chip'+(f.emoji===e?' on':'')} onClick={()=>set({emoji:e})}>{e}</button>)}</div>
     <label className="lab">Nombre</label>
@@ -980,7 +996,7 @@ function MetaSheet({meta,onClose,...P}){
       {aportes.map(a=><div className="fila" key={a.id}>
         <div className="tx"><b>{new Date(a.fecha+'T12:00:00').toLocaleDateString('es-CO',{day:'numeric',month:'short',year:'numeric'})}</b><span>{meta.ambito==='casa'?P.nombreDe(a.usuario_id):''}{a.nota?' '+a.nota:''}</span></div>
         <div className={'mt '+(a.monto<0?'neg':'pos')}>{a.monto<0?'':'+'}{fmt(a.monto)}</div>
-        <button className="ico-btn" onClick={async()=>{ if(confirm('¿Borrar este aporte?')) await P.borrar('meta_aportes',a.id); }}>🗑</button>
+        <button className="ico-btn" onClick={async()=>{ if(await confirmar('¿Borrar este aporte?')) await P.borrar('meta_aportes',a.id); }}>🗑</button>
       </div>)}</>}
     {meta&&<button className="btn del" onClick={eliminar}>Borrar meta</button>}
   </Sheet>;
@@ -1012,7 +1028,7 @@ function Ajustes({onClose,onSalir,onNombre,...P}){
   const [correo,setCorreo]=useState(undefined), [copiado,setCopiado]=useState(false), [script,setScript]=useState('');
   useEffect(()=>{ if(!DEMO) db.alertasEstado().then(setCorreo); },[]);
   const copiarScript=async()=>{
-    if(correo.conectado&&!confirm('Se genera un token nuevo y el script que tengas instalado deja de funcionar hasta que pegues el nuevo. ¿Continuar?')) return;
+    if(correo.conectado&&!await confirmar('Se genera un token nuevo y el script que tengas instalado deja de funcionar hasta que pegues el nuevo. ¿Continuar?')) return;
     try{
       const [token,res]=await Promise.all([db.alertasToken(),fetch('alertas_bancolombia.gs.txt?nc='+Date.now())]);
       if(!res.ok) throw new Error('No se pudo descargar el script');
@@ -1022,7 +1038,7 @@ function Ajustes({onClose,onSalir,onNombre,...P}){
       try{ await navigator.clipboard.writeText(txt); setScript(''); P.aviso('Script copiado ✓'); }catch(_){ setScript(txt); }
     }catch(e){ P.aviso(msgErr(e)); }
   };
-  const desconectar=async()=>{ if(!confirm('¿Dejar de recibir los correos del banco en la app?')) return; try{ await db.alertasDesconectar(); setCorreo({conectado:false,ultimo_at:null}); setCopiado(false); }catch(e){P.aviso(msgErr(e));} };
+  const desconectar=async()=>{ if(!await confirmar('¿Dejar de recibir los correos del banco en la app?')) return; try{ await db.alertasDesconectar(); setCorreo({conectado:false,ultimo_at:null}); setCopiado(false); }catch(e){P.aviso(msgErr(e));} };
   const guardarNombre=async()=>{ try{ await db.setNombre(nombre.trim()); onNombre(nombre.trim()); P.aviso('Nombre actualizado'); }catch(e){P.aviso(msgErr(e));} };
   const addCat=async()=>{
     const n=nc.nombre.trim(); if(!n) return;
@@ -1045,7 +1061,7 @@ function Ajustes({onClose,onSalir,onNombre,...P}){
     {datos.categorias.map(c=><div className="fila" key={c.id}>
       <div className="em">{c.emoji||'🏷️'}</div>
       <div className="tx"><b>{c.nombre}</b><span>{c.tipo==='gasto'?'Gasto':'Ingreso'} · {c.ambito==='casa'?'De la casa':'Mía'}</span></div>
-      <button className="ico-btn" onClick={async()=>{ if(confirm('¿Quitar la categoría "'+c.nombre+'"? Los movimientos que ya la usan no se borran.')) await P.borrar('categorias',c.id); }}>🗑</button>
+      <button className="ico-btn" onClick={async()=>{ if(await confirmar('¿Quitar la categoría "'+c.nombre+'"? Los movimientos que ya la usan no se borran.')) await P.borrar('categorias',c.id); }}>🗑</button>
     </div>)}
     <div style={{display:'flex',gap:8,marginTop:10}}>
       <input className="inp" style={{width:64,textAlign:'center'}} placeholder="🏷️" value={nc.emoji} onChange={e=>setNc({...nc,emoji:e.target.value})}/>
@@ -1084,7 +1100,7 @@ function Ajustes({onClose,onSalir,onNombre,...P}){
         <button className="btn mini" disabled={clave.length<6} onClick={cambiarClave}>Cambiar</button>
       </div></>}
 
-    {DEMO&&<button className="btn sec" onClick={()=>{ if(confirm('¿Volver a los datos de ejemplo iniciales?')){ try{localStorage.removeItem('fin_demo');}catch(e){} location.reload(); } }}>Reiniciar datos de ejemplo</button>}
+    {DEMO&&<button className="btn sec" onClick={async()=>{ if(await confirmar('¿Volver a los datos de ejemplo iniciales?')){ try{localStorage.removeItem('fin_demo');}catch(e){} location.reload(); } }}>Reiniciar datos de ejemplo</button>}
     <button className="btn del" onClick={onSalir}>{DEMO?'Cambiar de persona':'Cerrar sesión'}</button>
   </Sheet>;
 }
