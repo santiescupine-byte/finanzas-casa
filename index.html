@@ -229,6 +229,7 @@ const db = {
     if(error) throw error;
     return data.session?{id:data.user.id,email:data.user.email}:null;   // null = falta confirmar el correo
   },
+  async cambiarClave(pass){ const {error}=await sb.auth.updateUser({password:pass}); if(error) throw error; },
   async salir(){ if(DEMO) demo.setUid(null); else await sb.auth.signOut(); },
   async contexto(uid){
     if(DEMO) return {perfil:{...DEMO_USERS.find(u=>u.id===uid),hogar_id:'h1'},hogar:{id:'h1',nombre:'Nuestra casa',codigo:'DEMO123456'},miembros:DEMO_USERS};
@@ -299,7 +300,7 @@ function Vacio({e,children}){ return <div className="vacio"><span className="e">
 // ───────── Entrada ─────────
 function Auth({onEntrar}){
   const [modo,setModo]=useState('login'), [email,setEmail]=useState(''), [pass,setPass]=useState('');
-  const [err,setErr]=useState(''), [info,setInfo]=useState(''), [busy,setBusy]=useState(false);
+  const [err,setErr]=useState(''), [info,setInfo]=useState(''), [busy,setBusy]=useState(false), [ver,setVer]=useState(false);
   if(DEMO) return <div className="auth">
     <h1>💰 Finanzas de casa <span className="demo-tag">DEMO</span></h1>
     <p>Datos de ejemplo guardados solo en este navegador. Entra como cualquiera de los dos para ver cómo queda el espacio personal de cada uno y el de la casa.</p>
@@ -319,7 +320,10 @@ function Auth({onEntrar}){
     <label className="lab">Correo</label>
     <input className="inp" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/>
     <label className="lab">Contraseña</label>
-    <input className="inp" type="password" autoComplete={modo==='login'?'current-password':'new-password'} value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enviar()}/>
+    <div style={{display:'flex',gap:8}}>
+      <input className="inp" type={ver?'text':'password'} autoComplete={modo==='login'?'current-password':'new-password'} value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enviar()}/>
+      <button className="ico-btn" style={{height:'auto',flexShrink:0,width:48}} onClick={()=>setVer(!ver)}>{ver?'🙈':'👁'}</button>
+    </div>
     {err&&<div className="err">{err}</div>}
     {info&&<div className="nota">{info}</div>}
     <button className="btn" disabled={busy||!email||pass.length<6} onClick={enviar}>{busy?'…':modo==='login'?'Entrar':'Crear cuenta'}</button>
@@ -818,6 +822,8 @@ function Ajustes({onClose,onSalir,onNombre,...P}){
   const {ctx,datos,uid}=P;
   const [nombre,setNombre]=useState(ctx.perfil.nombre);
   const [nc,setNc]=useState({emoji:'',nombre:'',tipo:'gasto',ambito:P.ambito});
+  const [clave,setClave]=useState(''), [verClave,setVerClave]=useState(false);
+  const cambiarClave=async()=>{ try{ await db.cambiarClave(clave); setClave(''); P.aviso('Contraseña cambiada ✓'); }catch(e){P.aviso(msgErr(e));} };
   const guardarNombre=async()=>{ try{ await db.setNombre(nombre.trim()); onNombre(nombre.trim()); P.aviso('Nombre actualizado'); }catch(e){P.aviso(msgErr(e));} };
   const addCat=async()=>{
     const n=nc.nombre.trim(); if(!n) return;
@@ -851,6 +857,13 @@ function Ajustes({onClose,onSalir,onNombre,...P}){
       <Seg value={nc.ambito} onChange={a=>setNc({...nc,ambito:a})} ops={[['personal','👤 Mía'],['casa','🏠 Casa']]}/>
     </div>
     <button className="btn sec" disabled={!nc.nombre.trim()} onClick={addCat}>+ Agregar categoría</button>
+
+    {!DEMO&&<><label className="lab">Cambiar contraseña</label>
+      <div style={{display:'flex',gap:8}}>
+        <input className="inp" type={verClave?'text':'password'} autoComplete="new-password" placeholder="Nueva (mínimo 6)" value={clave} onChange={e=>setClave(e.target.value)}/>
+        <button className="ico-btn" style={{height:'auto',flexShrink:0}} onClick={()=>setVerClave(!verClave)}>{verClave?'🙈':'👁'}</button>
+        <button className="btn mini" disabled={clave.length<6} onClick={cambiarClave}>Cambiar</button>
+      </div></>}
 
     {DEMO&&<button className="btn sec" onClick={()=>{ if(confirm('¿Volver a los datos de ejemplo iniciales?')){ try{localStorage.removeItem('fin_demo');}catch(e){} location.reload(); } }}>Reiniciar datos de ejemplo</button>}
     <button className="btn del" onClick={onSalir}>{DEMO?'Cambiar de persona':'Cerrar sesión'}</button>
