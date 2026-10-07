@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Finanzas de casa</title>
+  <link rel="manifest" href="manifest.json">
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+  <meta name="theme-color" content="#0b1020">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="Finanzas">
+  <meta name="apple-mobile-web-app-title" content="Finanzas">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-512.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0b1020;--sf:#131a2e;--sf2:#1a2340;--bd:#27325a;
+      --t:#e6eaf5;--td:#8792b3;--tb:#ffffff;
+      --green:#22c58b;--red:#f2596b;--amber:#f5a524;--blue:#5b8cff;--violet:#9b7bff;
+      --acc:var(--blue);--acc-d:rgba(91,140,255,.14);
+      --font:'Outfit',system-ui,sans-serif;--r:16px;
+    }
+    @media (prefers-color-scheme: light){
+      :root{--bg:#f3f5fb;--sf:#ffffff;--sf2:#eef1f9;--bd:#dfe4f1;--t:#1c2440;--td:#6b7696;--tb:#0b1020;
+        --green:#0f9d6b;--red:#d93a50;--amber:#c97a00;--blue:#2f63e6;--violet:#6d4be0;}
+    }
+    .app[data-amb="casa"]{--acc:var(--amber);--acc-d:rgba(245,165,36,.16);}
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    body{background:var(--bg);font-family:var(--font);color:var(--t);overflow-x:hidden;}
+    input,select,button,textarea{font-family:inherit;font-size:inherit;color:inherit;}
+    button{cursor:pointer;border:none;background:none;}
+    #loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99;}
+    .loader{width:36px;height:36px;border:3px solid var(--bd);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .app{max-width:520px;margin:0 auto;min-height:100vh;padding:0 16px 104px;}
+    .top{position:sticky;top:0;z-index:5;background:var(--bg);padding:14px 0 10px;}
+    .top-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+    .hola{font-size:13px;color:var(--td);}
+    .hola b{display:block;font-size:19px;color:var(--tb);font-weight:700;}
+    .ico-btn{width:40px;height:40px;border-radius:12px;background:var(--sf);border:1px solid var(--bd);font-size:17px;}
+    .seg{display:flex;background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:4px;margin-top:12px;}
+    .seg button{flex:1;padding:10px 6px;border-radius:10px;font-weight:600;color:var(--td);font-size:14px;}
+    .seg button.on{background:var(--acc);color:#fff;}
+    .mes{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;}
+    .mes b{min-width:150px;text-align:center;font-size:15px;text-transform:capitalize;}
+    .mes button{width:34px;height:34px;border-radius:10px;background:var(--sf);border:1px solid var(--bd);font-size:16px;color:var(--t);}
+    .card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin-top:12px;}
+    .card h3{font-size:13px;font-weight:600;color:var(--td);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+    .card h3 button{color:var(--acc);font-weight:600;font-size:13px;text-transform:none;letter-spacing:0;}
+    .hero{background:linear-gradient(140deg,var(--acc-d),transparent 70%),var(--sf);}
+    .hero .lbl{font-size:13px;color:var(--td);}
+    .hero .big{font-size:34px;font-weight:800;color:var(--tb);letter-spacing:-.02em;margin:2px 0 12px;}
+    .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .kpi{background:var(--sf2);border-radius:12px;padding:10px 12px;}
+    .kpi span{font-size:12px;color:var(--td);display:block;}
+    .kpi b{font-size:17px;font-weight:700;}
+    .nota{font-size:12px;color:var(--td);margin-top:10px;line-height:1.5;}
+    .pos{color:var(--green);} .neg{color:var(--red);} .dim{color:var(--td);}
+    .bar{height:8px;background:var(--sf2);border-radius:99px;overflow:hidden;}
+    .bar i{display:block;height:100%;border-radius:99px;background:var(--acc);}
+    .bar i.warn{background:var(--amber);} .bar i.over{background:var(--red);} .bar i.ok{background:var(--green);}
+    .fila{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--bd);}
+    .fila:first-of-type{border-top:none;}
+    .fila .em{width:40px;height:40px;border-radius:12px;background:var(--sf2);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+    .fila .tx{flex:1;min-width:0;}
+    .fila .tx b{display:block;font-size:15px;font-weight:600;color:var(--tb);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .fila .tx span{font-size:12px;color:var(--td);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .fila .mt{font-weight:700;font-size:15px;white-space:nowrap;}
+    .catrow{margin-bottom:12px;} .catrow:last-child{margin-bottom:0;}
+    .catrow .l{display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px;gap:8px;}
+    .catrow .l b{font-weight:600;}
+    .dia{font-size:12px;color:var(--td);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin:18px 0 2px;display:flex;justify-content:space-between;}
+    .vacio{text-align:center;color:var(--td);padding:28px 10px;font-size:14px;line-height:1.5;}
+    .vacio .e{font-size:38px;display:block;margin-bottom:8px;}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;}
+    .chip{padding:8px 12px;border-radius:99px;background:var(--sf2);border:1px solid var(--bd);font-size:14px;color:var(--t);}
+    .chip.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600;}
+    .tabs{position:fixed;bottom:0;left:0;right:0;z-index:10;background:var(--sf);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom);}
+    .tabs div{max-width:520px;margin:0 auto;display:flex;}
+    .tabs button{flex:1;padding:9px 2px 10px;font-size:11px;color:var(--td);font-weight:600;}
+    .tabs button span{display:block;font-size:20px;margin-bottom:2px;filter:grayscale(1);opacity:.7;}
+    .tabs button.on{color:var(--acc);} .tabs button.on span{filter:none;opacity:1;}
+    .fab{position:fixed;bottom:calc(76px + env(safe-area-inset-bottom));right:max(16px,calc(50% - 244px));z-index:11;width:58px;height:58px;border-radius:20px;background:var(--acc);color:#fff;font-size:30px;font-weight:400;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+    .sheet-bg{position:fixed;inset:0;z-index:20;background:rgba(4,8,20,.6);display:flex;align-items:flex-end;justify-content:center;}
+    .sheet{background:var(--sf);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom));}
+    .sheet-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+    .sheet-h b{font-size:18px;color:var(--tb);}
+    .lab{font-size:12px;font-weight:600;color:var(--td);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px;display:block;}
+    .inp{width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;font-size:16px;outline:none;}
+    .inp:focus{border-color:var(--acc);}
+    .inp.monto{font-size:30px;font-weight:800;text-align:center;padding:14px;color:var(--tb);}
+    .dos{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .btn{width:100%;padding:14px;border-radius:14px;background:var(--acc);color:#fff;font-weight:700;font-size:16px;margin-top:18px;}
+    .btn:disabled{opacity:.45;}
+    .btn.sec{background:var(--sf2);color:var(--t);border:1px solid var(--bd);}
+    .btn.del{background:none;color:var(--red);font-weight:600;margin-top:8px;padding:10px;}
+    .btn.mini{width:auto;margin:0;padding:8px 14px;font-size:14px;border-radius:10px;}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:150px;z-index:40;background:var(--tb);color:var(--bg);padding:10px 18px;border-radius:99px;font-size:14px;font-weight:600;max-width:90%;text-align:center;}
+    .auth{max-width:400px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:24px;}
+    .auth h1{font-size:28px;color:var(--tb);margin-bottom:6px;}
+    .auth p{color:var(--td);font-size:15px;line-height:1.5;}
+    .err{color:var(--red);font-size:14px;margin-top:10px;}
+    .link{color:var(--acc);font-weight:600;font-size:14px;margin-top:16px;text-align:center;display:block;width:100%;}
+    .demo-tag{background:var(--amber);color:#1a1200;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px;vertical-align:middle;}
+    .meses6{display:flex;align-items:flex-end;gap:8px;height:110px;}
+    .meses6 div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;}
+    .meses6 i{display:block;width:100%;max-width:34px;border-radius:6px 6px 2px 2px;background:var(--sf2);min-height:3px;}
+    .meses6 i.on{background:var(--acc);}
+    .meses6 span{font-size:11px;color:var(--td);text-transform:capitalize;}
+    .codigo{font-size:24px;font-weight:800;letter-spacing:.14em;text-align:center;padding:14px;background:var(--sf2);border-radius:12px;color:var(--tb);user-select:all;}
+  </style>
+</head>
+<body>
+<div id="loading"><div class="loader"></div></div>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script type="text/babel">
+const {useState,useEffect,useMemo} = React;
+
+// ───────── Conexión ─────────
+// Vacío = MODO DEMO (datos de ejemplo guardados solo en este navegador).
+// Al crear el proyecto de Supabase se pegan aquí la URL y la anon key.
+const SUPABASE_URL = 'https://rstcqffwrxrstwwfxrvj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_m6tJglfiuQRBiFvrElqngQ_VHQi4jfF';
+const DEMO = !SUPABASE_URL;
+const sb = DEMO ? null : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ───────── Utilidades ─────────
+const fmt = n => { n=Math.round(Number(n)||0); return (n<0?'-':'')+'$'+Math.abs(n).toLocaleString('es-CO'); };
+const p2 = n => String(n).padStart(2,'0');
+const fechaStr = d => d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+const hoyStr = () => fechaStr(new Date());
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const mesNombre = m => MESES[+m.slice(5,7)-1]+' '+m.slice(0,4);
+const mesMover = (m,d) => { let y=+m.slice(0,4), mm=+m.slice(5,7)+d; while(mm<1){mm+=12;y--;} while(mm>12){mm-=12;y++;} return y+'-'+p2(mm); };
+const diaNombre = f => { const d=new Date(f+'T12:00:00'); return f===hoyStr()?'Hoy':DIAS[d.getDay()]+' '+d.getDate(); };
+const suma = (arr,f=x=>x.monto) => arr.reduce((s,x)=>s+(Number(f(x))||0),0);
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Date.now()+'-'+Math.random().toString(16).slice(2));
+
+// ───────── Categorías de fábrica (las propias se guardan en la base) ─────────
+const CATS = {
+  personal:{
+    gasto:[['🍔','Comida fuera'],['🚌','Transporte'],['👕','Ropa'],['💊','Salud'],['🎉','Ocio'],['📱','Celular y suscripciones'],['💇','Cuidado personal'],['📚','Educación'],['🎁','Regalos'],['📦','Otros']],
+    ingreso:[['💼','Salario'],['🏪','Negocio'],['💸','Extra'],['🎁','Regalo'],['📦','Otros']],
+  },
+  casa:{
+    gasto:[['🏠','Arriendo / cuota'],['🛒','Mercado'],['💡','Servicios'],['📶','Internet y TV'],['🧹','Aseo'],['🔧','Arreglos'],['🚗','Carro'],['🐶','Mascotas'],['👶','Hijos'],['🍽️','Salidas'],['✈️','Viajes'],['📦','Otros']],
+    ingreso:[['💸','Aporte'],['🏪','Negocio'],['📦','Otros']],
+  },
+};
+const TIPOS_DEUDA = {tarjeta:['💳','Tarjeta de crédito'],credito:['🏦','Crédito'],prestamo:['🤝','Préstamo'],otro:['📄','Otra']};
+const TABLAS = ['movimientos','presupuestos','deudas','metas','meta_aportes','categorias'];
+
+// ───────── Demo: dos personas y datos de ejemplo en localStorage ─────────
+const DEMO_USERS = [{id:'u1',nombre:'Él'},{id:'u2',nombre:'Ella'}];
+function demoSeed(){
+  const hoy=new Date(), y=hoy.getFullYear(), m=hoy.getMonth();
+  const f=(dm,dia)=>fechaStr(new Date(y,m+dm,Math.min(dia, dm===0?hoy.getDate():28)));
+  const s={v:1,movimientos:[],presupuestos:[],deudas:[],metas:[],meta_aportes:[],categorias:[]};
+  const mov=(u,amb,tipo,monto,cat,desc,dm,dia,extra={})=>s.movimientos.push({id:uuid(),hogar_id:'h1',usuario_id:u,ambito:amb,tipo,monto,categoria:cat,descripcion:desc,fecha:f(dm,dia),pagado_por:u,medio:'debito',deuda_id:null,created_at:new Date().toISOString(),...extra});
+  const tc={id:uuid(),hogar_id:'h1',usuario_id:'u1',ambito:'personal',nombre:'Visa',tipo:'tarjeta',monto_inicial:850000,cuota:300000,tasa:2.1,dia_pago:15,activa:true};
+  const carro={id:uuid(),hogar_id:'h1',usuario_id:'u1',ambito:'casa',nombre:'Crédito del carro',tipo:'credito',monto_inicial:18500000,cuota:780000,tasa:1.4,dia_pago:5,activa:true};
+  s.deudas.push(tc,carro);
+  [-1,0].forEach(dm=>{
+    mov('u1','personal','ingreso',4200000,'Salario','Quincenas',dm,1);
+    mov('u2','personal','ingreso',3600000,'Salario','Nómina',dm,1);
+    mov('u1','casa','gasto',1450000,'Arriendo / cuota','Arriendo',dm,3);
+    mov('u2','casa','gasto',520000,'Mercado','Mercado grande',dm,4);
+    mov('u1','casa','gasto',238000,'Servicios','Luz y agua',dm,6);
+    mov('u2','casa','gasto',95000,'Internet y TV','Internet',dm,6);
+    mov('u1','casa','abono',780000,'Pago de deuda','Crédito del carro',dm,5,{deuda_id:carro.id});
+    mov('u1','personal','gasto',64000,'Comida fuera','Almuerzos',dm,7);
+    mov('u1','personal','gasto',180000,'Ropa','Tenis',dm,8,{medio:'tarjeta',deuda_id:tc.id});
+    mov('u1','personal','gasto',45000,'Celular y suscripciones','Plan celular',dm,2);
+    mov('u2','personal','gasto',120000,'Cuidado personal','Peluquería',dm,5);
+    mov('u2','personal','gasto',88000,'Ocio','Cine y comida',dm,7);
+  });
+  mov('u2','casa','gasto',164000,'Mercado','Fruver y carnes',0,8);
+  mov('u1','casa','gasto',72000,'Salidas','Pizza',0,8);
+  const pre=(u,amb,cat,monto)=>s.presupuestos.push({id:uuid(),hogar_id:'h1',usuario_id:u,ambito:amb,categoria:cat,monto});
+  pre('u1','casa','Mercado',900000); pre('u1','casa','Servicios',300000); pre('u1','casa','Salidas',250000);
+  pre('u1','personal','Comida fuera',200000); pre('u2','personal','Ocio',150000);
+  const viaje={id:uuid(),hogar_id:'h1',usuario_id:'u1',ambito:'casa',nombre:'Viaje de diciembre',emoji:'✈️',objetivo:4000000,fecha_meta:y+'-12-15'};
+  const fondo={id:uuid(),hogar_id:'h1',usuario_id:'u1',ambito:'personal',nombre:'Fondo de emergencia',emoji:'🛟',objetivo:6000000,fecha_meta:null};
+  s.metas.push(viaje,fondo);
+  const ap=(u,meta,monto,dm,dia)=>s.meta_aportes.push({id:uuid(),hogar_id:'h1',usuario_id:u,ambito:meta.ambito,meta_id:meta.id,monto,fecha:f(dm,dia),nota:''});
+  ap('u1',viaje,400000,-1,10); ap('u2',viaje,400000,-1,10); ap('u1',viaje,300000,0,2); ap('u1',fondo,500000,-1,12); ap('u1',fondo,350000,0,2);
+  return s;
+}
+const demo = {
+  load(){ try{const s=JSON.parse(localStorage.getItem('fin_demo')); if(s&&s.v===1) return s;}catch(e){} const s=demoSeed(); demo.save(s); return s; },
+  save(s){ try{localStorage.setItem('fin_demo',JSON.stringify(s));}catch(e){} },
+  uid(){ try{return localStorage.getItem('fin_demo_uid');}catch(e){return null;} },
+  setUid(u){ try{u?localStorage.setItem('fin_demo_uid',u):localStorage.removeItem('fin_demo_uid');}catch(e){} },
+};
+
+// ───────── Capa de datos (Supabase o demo) ─────────
+async function traerTodo(tabla){
+  // PostgREST corta en 1000 filas: siempre paginar.
+  let out=[], from=0;
+  for(;;){
+    const {data,error}=await sb.from(tabla).select('*').order('created_at').order('id').range(from,from+999);
+    if(error) throw error;
+    out=out.concat(data); if(data.length<1000) break; from+=1000;
+  }
+  return out;
+}
+const db = {
+  async sesion(){
+    if(DEMO){ const u=demo.uid(); return u?{id:u}:null; }
+    const {data}=await sb.auth.getSession();
+    return data.session?{id:data.session.user.id,email:data.session.user.email}:null;
+  },
+  async login(email,pass){
+    const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+    if(error) throw error; return {id:data.user.id,email:data.user.email};
+  },
+  async registro(email,pass){
+    const {data,error}=await sb.auth.signUp({email,password:pass});
+    if(error) throw error;
+    return data.session?{id:data.user.id,email:data.user.email}:null;   // null = falta confirmar el correo
+  },
+  async salir(){ if(DEMO) demo.setUid(null); else await sb.auth.signOut(); },
+  async contexto(uid){
+    if(DEMO) return {perfil:{...DEMO_USERS.find(u=>u.id===uid),hogar_id:'h1'},hogar:{id:'h1',nombre:'Nuestra casa',codigo:'DEMO123456'},miembros:DEMO_USERS};
+    const {data:perfil,error}=await sb.from('perfiles').select('*').eq('id',uid).maybeSingle();
+    if(error) throw error;
+    if(!perfil||!perfil.hogar_id) return {perfil:perfil||null,hogar:null,miembros:[]};
+    const [{data:hogar},{data:miembros}]=await Promise.all([
+      sb.from('hogares').select('*').maybeSingle(),
+      sb.from('perfiles').select('id,nombre').order('created_at'),
+    ]);
+    return {perfil,hogar,miembros:miembros||[]};
+  },
+  async crearHogar(hogar,nombre){ const {error}=await sb.rpc('crear_hogar',{p_hogar:hogar,p_nombre:nombre}); if(error) throw error; },
+  async unirseHogar(codigo,nombre){ const {error}=await sb.rpc('unirse_hogar',{p_codigo:codigo,p_nombre:nombre}); if(error) throw error; },
+  async setNombre(nombre){ if(DEMO) return; const {error}=await sb.rpc('set_mi_nombre',{p_nombre:nombre}); if(error) throw error; },
+  async todo(uid){
+    const out={};
+    if(DEMO){ const s=demo.load(); TABLAS.forEach(t=>out[t]=(s[t]||[]).filter(r=>r.ambito==='casa'||r.usuario_id===uid)); return out; }
+    const res=await Promise.all(TABLAS.map(traerTodo));
+    TABLAS.forEach((t,i)=>out[t]=res[i]); return out;
+  },
+  async add(tabla,row,uid){
+    if(DEMO){ const s=demo.load(); const r={id:uuid(),hogar_id:'h1',usuario_id:uid,created_at:new Date().toISOString(),...row}; s[tabla].push(r); demo.save(s); return r; }
+    const {data,error}=await sb.from(tabla).insert(row).select().single(); if(error) throw error; return data;
+  },
+  async upd(tabla,id,patch){
+    if(DEMO){ const s=demo.load(); const i=s[tabla].findIndex(r=>r.id===id); s[tabla][i]={...s[tabla][i],...patch}; demo.save(s); return s[tabla][i]; }
+    const {data,error}=await sb.from(tabla).update(patch).eq('id',id).select().single(); if(error) throw error; return data;
+  },
+  async del(tabla,id){
+    if(DEMO){ const s=demo.load(); s[tabla]=s[tabla].filter(r=>r.id!==id);
+      if(tabla==='metas') s.meta_aportes=s.meta_aportes.filter(a=>a.meta_id!==id);
+      if(tabla==='deudas') s.movimientos.forEach(m=>{if(m.deuda_id===id) m.deuda_id=null;});
+      demo.save(s); return; }
+    const {error}=await sb.from(tabla).delete().eq('id',id); if(error) throw error;
+  },
+};
+const msgErr = e => {
+  const m=(e&&e.message)||String(e);
+  if(/Invalid login/i.test(m)) return 'Correo o contraseña incorrectos';
+  if(/already registered/i.test(m)) return 'Ese correo ya tiene cuenta';
+  if(/at least 6/i.test(m)) return 'La contraseña debe tener mínimo 6 caracteres';
+  if(/Failed to fetch/i.test(m)) return 'Sin conexión. Intenta de nuevo.';
+  return m;
+};
+
+// ───────── Piezas comunes ─────────
+function Sheet({titulo,onClose,children}){
+  return <div className="sheet-bg" onClick={onClose}><div className="sheet" onClick={e=>e.stopPropagation()}>
+    <div className="sheet-h"><b>{titulo}</b><button className="ico-btn" onClick={onClose}>✕</button></div>
+    {children}
+  </div></div>;
+}
+function MontoInput({value,onChange,autoFocus,grande}){
+  return <input className={'inp'+(grande?' monto':'')} inputMode="numeric" placeholder="$0" autoFocus={autoFocus}
+    value={value?'$'+Number(value).toLocaleString('es-CO'):''}
+    onChange={e=>{const n=e.target.value.replace(/\D/g,'').slice(0,12); onChange(n?Number(n):0);}}/>;
+}
+function Seg({value,onChange,ops}){
+  return <div className="seg" style={{marginTop:0}}>{ops.map(([v,l])=><button key={v} className={value===v?'on':''} onClick={()=>onChange(v)}>{l}</button>)}</div>;
+}
+function Barra({pct,modo}){
+  const cls = modo==='meta' ? 'ok' : pct>=100?'over':pct>=80?'warn':'';
+  return <div className="bar"><i className={cls} style={{width:Math.max(0,Math.min(100,pct))+'%'}}/></div>;
+}
+function Vacio({e,children}){ return <div className="vacio"><span className="e">{e}</span>{children}</div>; }
+
+// ───────── Entrada ─────────
+function Auth({onEntrar}){
+  const [modo,setModo]=useState('login'), [email,setEmail]=useState(''), [pass,setPass]=useState('');
+  const [err,setErr]=useState(''), [info,setInfo]=useState(''), [busy,setBusy]=useState(false);
+  if(DEMO) return <div className="auth">
+    <h1>💰 Finanzas de casa <span className="demo-tag">DEMO</span></h1>
+    <p>Datos de ejemplo guardados solo en este navegador. Entra como cualquiera de los dos para ver cómo queda el espacio personal de cada uno y el de la casa.</p>
+    {DEMO_USERS.map(u=><button key={u.id} className="btn" onClick={()=>{demo.setUid(u.id);onEntrar({id:u.id});}}>Entrar como {u.nombre}</button>)}
+  </div>;
+  const enviar=async()=>{
+    setErr('');setInfo('');setBusy(true);
+    try{
+      if(modo==='login') onEntrar(await db.login(email.trim(),pass));
+      else { const s=await db.registro(email.trim(),pass); if(s) onEntrar(s); else {setInfo('Te enviamos un correo para confirmar la cuenta. Ábrelo y luego entra aquí.');setModo('login');} }
+    }catch(e){setErr(msgErr(e));}
+    setBusy(false);
+  };
+  return <div className="auth">
+    <h1>💰 Finanzas de casa</h1>
+    <p>{modo==='login'?'Entra con tu correo y contraseña.':'Crea tu cuenta. Cada uno tiene la suya.'}</p>
+    <label className="lab">Correo</label>
+    <input className="inp" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/>
+    <label className="lab">Contraseña</label>
+    <input className="inp" type="password" autoComplete={modo==='login'?'current-password':'new-password'} value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enviar()}/>
+    {err&&<div className="err">{err}</div>}
+    {info&&<div className="nota">{info}</div>}
+    <button className="btn" disabled={busy||!email||pass.length<6} onClick={enviar}>{busy?'…':modo==='login'?'Entrar':'Crear cuenta'}</button>
+    <button className="link" onClick={()=>{setModo(modo==='login'?'registro':'login');setErr('');}}>{modo==='login'?'No tengo cuenta — crear una':'Ya tengo cuenta — entrar'}</button>
+  </div>;
+}
+function Bienvenida({onListo,onSalir}){
+  const [modo,setModo]=useState('crear'), [nombre,setNombre]=useState(''), [hogar,setHogar]=useState('Nuestra casa'), [codigo,setCodigo]=useState('');
+  const [err,setErr]=useState(''), [busy,setBusy]=useState(false);
+  const enviar=async()=>{
+    setErr('');setBusy(true);
+    try{ if(modo==='crear') await db.crearHogar(hogar,nombre); else await db.unirseHogar(codigo,nombre); onListo(); }
+    catch(e){setErr(msgErr(e));setBusy(false);}
+  };
+  return <div className="auth">
+    <h1>👋 Bienvenido</h1>
+    <p>Falta un paso: decir cómo te llamas y a qué casa perteneces.</p>
+    <label className="lab">Tu nombre</label>
+    <input className="inp" value={nombre} onChange={e=>setNombre(e.target.value)}/>
+    <label className="lab">Tu casa</label>
+    <Seg value={modo} onChange={setModo} ops={[['crear','Crear la casa'],['unir','Tengo un código']]}/>
+    {modo==='crear'
+      ? <><label className="lab">Nombre de la casa</label><input className="inp" value={hogar} onChange={e=>setHogar(e.target.value)}/>
+          <div className="nota">Después te sale un código para invitar a tu pareja.</div></>
+      : <><label className="lab">Código de invitación</label><input className="inp" value={codigo} onChange={e=>setCodigo(e.target.value.toUpperCase())}/></>}
+    {err&&<div className="err">{err}</div>}
+    <button className="btn" disabled={busy||!nombre.trim()||(modo==='unir'&&!codigo.trim())} onClick={enviar}>{busy?'…':'Continuar'}</button>
+    <button className="link" onClick={onSalir}>Salir</button>
+  </div>;
+}
+
+// ───────── App ─────────
+function App(){
+  const [ses,setSes]=useState(undefined);       // undefined = cargando, null = sin sesión
+  const [ctx,setCtx]=useState(null);
+  const [datos,setDatos]=useState(null);
+  const [ambito,setAmbito]=useState('personal');
+  const [mes,setMes]=useState(hoyStr().slice(0,7));
+  const [tab,setTab]=useState('resumen');
+  const [sheet,setSheet]=useState(null);         // {tipo, ...}
+  const [toast,setToast]=useState('');
+
+  const aviso=t=>{setToast(t);setTimeout(()=>setToast(''),2600);};
+  useEffect(()=>{ db.sesion().then(setSes).catch(()=>setSes(null)); document.getElementById('loading').style.display='none'; },[]);
+  const cargar=async(s)=>{
+    try{ const c=await db.contexto(s.id); setCtx(c); if(c.hogar) setDatos(await db.todo(s.id)); }
+    catch(e){ aviso(msgErr(e)); }
+  };
+  useEffect(()=>{ if(ses){setCtx(null);setDatos(null);cargar(ses);} },[ses]);
+  const salir=async()=>{ await db.salir(); setSes(null);setCtx(null);setDatos(null);setSheet(null);setTab('resumen');setAmbito('personal'); };
+
+  // Guardar / borrar con actualización local
+  const guardar=async(tabla,row)=>{
+    try{
+      const {id,created_at,hogar_id,usuario_id,...campos}=row;
+      const r = id ? await db.upd(tabla,id,campos) : await db.add(tabla,campos,ses.id);
+      setDatos(d=>({...d,[tabla]: id ? d[tabla].map(x=>x.id===id?r:x) : [...d[tabla],r]}));
+      return r;
+    }catch(e){ aviso(msgErr(e)); return null; }
+  };
+  const borrar=async(tabla,id)=>{
+    try{
+      await db.del(tabla,id);
+      setDatos(d=>({...d,[tabla]:d[tabla].filter(x=>x.id!==id),
+        ...(tabla==='metas'?{meta_aportes:d.meta_aportes.filter(a=>a.meta_id!==id)}:{}),
+        ...(tabla==='deudas'?{movimientos:d.movimientos.map(m=>m.deuda_id===id?{...m,deuda_id:null}:m)}:{})}));
+      return true;
+    }catch(e){ aviso(msgErr(e)); return false; }
+  };
+
+  if(ses===undefined) return null;
+  if(!ses) return <Auth onEntrar={setSes}/>;
+  if(!ctx) return <div className="auth" style={{alignItems:'center'}}><div className="loader"/></div>;
+  if(!ctx.hogar) return <Bienvenida onListo={()=>cargar(ses)} onSalir={salir}/>;
+  if(!datos) return <div className="auth" style={{alignItems:'center'}}><div className="loader"/></div>;
+
+  const uid=ses.id;
+  const nombreDe=id=>{ const m=ctx.miembros.find(x=>x.id===id); return m?m.nombre:'—'; };
+  const catsDe=(amb,tipo)=>[...CATS[amb][tipo],...datos.categorias.filter(c=>c.ambito===amb&&c.tipo===tipo).map(c=>[c.emoji||'🏷️',c.nombre])];
+  const emojiDe=(nombre,m)=>{
+    if(m&&m.tipo==='abono') return '💳';
+    for(const a of ['personal','casa']) for(const t of ['gasto','ingreso']){ const c=catsDe(a,t).find(c=>c[1]===nombre); if(c) return c[0]; }
+    return '🏷️';
+  };
+  const saldoDeuda=d=>Number(d.monto_inicial||0)+suma(datos.movimientos.filter(m=>m.deuda_id===d.id&&m.tipo==='gasto'))-suma(datos.movimientos.filter(m=>m.deuda_id===d.id&&m.tipo==='abono'));
+  const ahorradoMeta=mt=>suma(datos.meta_aportes.filter(a=>a.meta_id===mt.id));
+
+  const P={uid,ctx,datos,ambito,mes,nombreDe,catsDe,emojiDe,saldoDeuda,ahorradoMeta,guardar,borrar,aviso,abrir:setSheet,ir:setTab};
+  const cerrar=()=>setSheet(null);
+
+  return <div className="app" data-amb={ambito}>
+    <div className="top">
+      <div className="top-row">
+        <div className="hola">{ambito==='casa'?ctx.hogar.nombre:'Tu espacio personal'}<b>{ambito==='casa'?'🏠 Gastos de la casa':'👤 '+ctx.perfil.nombre}{DEMO&&<span className="demo-tag">DEMO</span>}</b></div>
+        <button className="ico-btn" onClick={()=>setSheet({tipo:'ajustes'})}>⚙️</button>
+      </div>
+      <div className="seg">
+        <button className={ambito==='personal'?'on':''} onClick={()=>setAmbito('personal')}>👤 Lo mío</button>
+        <button className={ambito==='casa'?'on':''} onClick={()=>setAmbito('casa')}>🏠 La casa</button>
+      </div>
+      {(tab==='resumen'||tab==='movs'||tab==='presu')&&<div className="mes">
+        <button onClick={()=>setMes(mesMover(mes,-1))}>‹</button><b>{mesNombre(mes)}</b><button onClick={()=>setMes(mesMover(mes,1))}>›</button>
+      </div>}
+    </div>
+
+    {tab==='resumen'&&<Resumen {...P}/>}
+    {tab==='movs'&&<Movimientos {...P}/>}
+    {tab==='presu'&&<Presupuestos {...P}/>}
+    {tab==='deudas'&&<Deudas {...P}/>}
+    {tab==='metas'&&<Metas {...P}/>}
+
+    {(tab==='resumen'||tab==='movs')&&<button className="fab" onClick={()=>setSheet({tipo:'mov'})}>+</button>}
+    <div className="tabs"><div>
+      {[['resumen','📊','Resumen'],['movs','🧾','Movimientos'],['presu','🎯','Presupuesto'],['deudas','💳','Deudas'],['metas','🐷','Ahorro']].map(([k,e,l])=>
+        <button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)}><span>{e}</span>{l}</button>)}
+    </div></div>
+
+    {sheet&&sheet.tipo==='mov'&&<MovSheet {...P} mov={sheet.mov} onClose={cerrar}/>}
+    {sheet&&sheet.tipo==='presu'&&<PresuSheet {...P} cat={sheet.cat} onClose={cerrar}/>}
+    {sheet&&sheet.tipo==='deuda'&&<DeudaSheet {...P} deuda={sheet.deuda} onClose={cerrar}/>}
+    {sheet&&sheet.tipo==='abono'&&<AbonoSheet {...P} deuda={sheet.deuda} onClose={cerrar}/>}
+    {sheet&&sheet.tipo==='meta'&&<MetaSheet {...P} meta={sheet.meta} onClose={cerrar}/>}
+    {sheet&&sheet.tipo==='aporte'&&<AporteSheet {...P} meta={sheet.meta} onClose={cerrar}/>}
+    {sheet&&sheet.tipo==='ajustes'&&<Ajustes {...P} onClose={cerrar} onSalir={salir} onNombre={n=>setCtx(c=>({...c,perfil:{...c.perfil,nombre:n},miembros:c.miembros.map(m=>m.id===uid?{...m,nombre:n}:m)}))}/>}
+    {toast&&<div className="toast">{toast}</div>}
+  </div>;
+}
+
+// ───────── Resumen ─────────
+function FilaMov({m,P,onClick}){
+  const sub=[m.categoria, P.ambito==='casa'&&m.tipo!=='ingreso'?'pagó '+P.nombreDe(m.pagado_por):null, m.medio==='tarjeta'?'con tarjeta':null].filter(Boolean).join(' · ');
+  return <div className="fila" onClick={onClick}>
+    <div className="em">{P.emojiDe(m.categoria,m)}</div>
+    <div className="tx"><b>{m.descripcion||m.categoria}</b><span>{sub}</span></div>
+    <div className={'mt '+(m.tipo==='ingreso'?'pos':'')}>{m.tipo==='ingreso'?'+':'−'}{fmt(m.monto)}</div>
+  </div>;
+}
+function Resumen(P){
+  const {datos,ambito,mes,ctx}=P;
+  const movs=datos.movimientos.filter(m=>m.ambito===ambito);
+  const delMes=movs.filter(m=>m.fecha.slice(0,7)===mes);
+  const gastos=delMes.filter(m=>m.tipo==='gasto'), ingresos=suma(delMes.filter(m=>m.tipo==='ingreso'));
+  const totGastos=suma(gastos), abonos=suma(delMes.filter(m=>m.tipo==='abono')), conTarjeta=suma(gastos.filter(m=>m.deuda_id));
+  const ahorro=suma(datos.meta_aportes.filter(a=>a.ambito===ambito&&a.fecha.slice(0,7)===mes));
+  // Lo que realmente salió del bolsillo: las compras con tarjeta se pagan cuando se abona la tarjeta.
+  const salio=totGastos-conTarjeta+abonos;
+  const balance=ingresos-salio-ahorro;
+  const porCat=Object.entries(gastos.reduce((o,m)=>{o[m.categoria]=(o[m.categoria]||0)+Number(m.monto);return o;},{})).sort((a,b)=>b[1]-a[1]);
+  const pagadores=ctx.miembros.map(mb=>({...mb,total:suma(delMes.filter(m=>m.tipo!=='ingreso'&&m.pagado_por===mb.id))}));
+  const totPag=suma(pagadores,p=>p.total);
+  const presu=datos.presupuestos.filter(p=>p.ambito===ambito&&p.monto>0);
+  const totPresu=suma(presu), gastoPresu=suma(gastos.filter(m=>presu.some(p=>p.categoria===m.categoria)));
+  const deudas=datos.deudas.filter(d=>d.ambito===ambito&&d.activa!==false);
+  const totDeuda=suma(deudas,P.saldoDeuda);
+  const metas=datos.metas.filter(m=>m.ambito===ambito);
+  const seis=[5,4,3,2,1,0].map(i=>{const mm=mesMover(mes,-i);return {mm,v:suma(movs.filter(m=>m.tipo==='gasto'&&m.fecha.slice(0,7)===mm))};});
+  const max6=Math.max(1,...seis.map(s=>s.v));
+  const ultimos=[...delMes].sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.created_at||'').localeCompare(a.created_at||'')).slice(0,5);
+  const hayIngresos=ingresos>0||ambito==='personal';
+
+  return <>
+    <div className="card hero">
+      {hayIngresos ? <>
+        <div className="lbl">Te queda este mes</div>
+        <div className={'big '+(balance<0?'neg':'')}>{fmt(balance)}</div>
+        <div className="kpis">
+          <div className="kpi"><span>Ingresos</span><b className="pos">{fmt(ingresos)}</b></div>
+          <div className="kpi"><span>Gastos</span><b>{fmt(totGastos)}</b></div>
+        </div>
+      </> : <>
+        <div className="lbl">Gastos de la casa este mes</div>
+        <div className="big">{fmt(salio)}</div>
+      </>}
+      {(abonos>0||ahorro!==0||conTarjeta>0)&&<div className="nota">
+        {abonos>0&&<>Pagos a deudas {fmt(abonos)}. </>}
+        {ahorro!==0&&<>Ahorro {fmt(ahorro)}. </>}
+        {conTarjeta>0&&<>Compras con tarjeta {fmt(conTarjeta)} (se descuentan cuando pagues la tarjeta).</>}
+      </div>}
+    </div>
+
+    {ambito==='casa'&&totPag>0&&<div className="card">
+      <h3>Quién ha pagado</h3>
+      {pagadores.map(p=><div className="catrow" key={p.id}>
+        <div className="l"><b>{p.nombre}</b><span>{fmt(p.total)} · {Math.round(p.total/totPag*100)}%</span></div>
+        <Barra pct={p.total/totPag*100} modo="meta"/>
+      </div>)}
+    </div>}
+
+    {totPresu>0&&<div className="card" onClick={()=>P.ir('presu')}>
+      <h3>Presupuesto <button>Ver</button></h3>
+      <div className="catrow"><div className="l"><b>{fmt(gastoPresu)} de {fmt(totPresu)}</b><span className={gastoPresu>totPresu?'neg':'dim'}>{gastoPresu>totPresu?'Te pasaste '+fmt(gastoPresu-totPresu):'Quedan '+fmt(totPresu-gastoPresu)}</span></div>
+      <Barra pct={gastoPresu/totPresu*100}/></div>
+    </div>}
+
+    <div className="card">
+      <h3>En qué se fue</h3>
+      {porCat.length===0 ? <Vacio e="🧾">Sin gastos en {mesNombre(mes)}.<br/>Toca <b>+</b> para anotar el primero.</Vacio>
+      : porCat.slice(0,7).map(([c,v])=><div className="catrow" key={c}>
+          <div className="l"><b>{P.emojiDe(c)} {c}</b><span>{fmt(v)} · {Math.round(v/totGastos*100)}%</span></div>
+          <div className="bar"><i style={{width:v/porCat[0][1]*100+'%'}}/></div>
+        </div>)}
+    </div>
+
+    <div className="card">
+      <h3>Gastos de los últimos 6 meses</h3>
+      <div className="meses6">{seis.map(s=><div key={s.mm}><i className={s.mm===mes?'on':''} style={{height:Math.round(s.v/max6*84)+'px'}}/><span>{MESES[+s.mm.slice(5,7)-1].slice(0,3)}</span></div>)}</div>
+    </div>
+
+    {(deudas.length>0||metas.length>0)&&<div className="card">
+      {deudas.length>0&&<div className="fila" onClick={()=>P.ir('deudas')}><div className="em">💳</div><div className="tx"><b>Deudas</b><span>{deudas.length} activa{deudas.length>1?'s':''}</span></div><div className="mt neg">{fmt(totDeuda)}</div></div>}
+      {metas.length>0&&<div className="fila" onClick={()=>P.ir('metas')}><div className="em">🐷</div><div className="tx"><b>Ahorrado en metas</b><span>{metas.length} meta{metas.length>1?'s':''}</span></div><div className="mt pos">{fmt(suma(metas,P.ahorradoMeta))}</div></div>}
+    </div>}
+
+    {ultimos.length>0&&<div className="card">
+      <h3>Últimos movimientos <button onClick={()=>P.ir('movs')}>Ver todos</button></h3>
+      {ultimos.map(m=><FilaMov key={m.id} m={m} P={P} onClick={()=>P.abrir({tipo:'mov',mov:m})}/>)}
+    </div>}
+  </>;
+}
+
+// ───────── Movimientos ─────────
+function Movimientos(P){
+  const {datos,ambito,mes}=P;
+  const [filtro,setFiltro]=useState('todos'), [q,setQ]=useState('');
+  const lista=datos.movimientos.filter(m=>m.ambito===ambito&&m.fecha.slice(0,7)===mes)
+    .filter(m=>filtro==='todos'||m.tipo===filtro||(filtro==='gasto'&&m.tipo==='abono'))
+    .filter(m=>!q||((m.descripcion||'')+' '+m.categoria).toLowerCase().includes(q.toLowerCase()))
+    .sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.created_at||'').localeCompare(a.created_at||''));
+  const dias=[...new Set(lista.map(m=>m.fecha))];
+  return <>
+    <div className="card" style={{padding:12}}>
+      <input className="inp" placeholder="🔍 Buscar" value={q} onChange={e=>setQ(e.target.value)}/>
+      <div className="chips" style={{marginTop:10}}>
+        {[['todos','Todos'],['gasto','Gastos'],['ingreso','Ingresos']].map(([k,l])=><button key={k} className={'chip'+(filtro===k?' on':'')} onClick={()=>setFiltro(k)}>{l}</button>)}
+      </div>
+    </div>
+    {lista.length===0 ? <Vacio e="🧾">No hay movimientos en {mesNombre(mes)}.</Vacio>
+    : dias.map(d=>{ const delDia=lista.filter(m=>m.fecha===d); const neto=suma(delDia,m=>m.tipo==='ingreso'?m.monto:-m.monto);
+        return <div key={d}>
+          <div className="dia"><span>{diaNombre(d)}</span><span>{fmt(neto)}</span></div>
+          <div className="card" style={{marginTop:6,paddingTop:6,paddingBottom:6}}>{delDia.map(m=><FilaMov key={m.id} m={m} P={P} onClick={()=>P.abrir({tipo:'mov',mov:m})}/>)}</div>
+        </div>; })}
+  </>;
+}
+function MovSheet({mov,onClose,...P}){
+  const {uid,ctx,datos}=P;
+  const [f,setF]=useState(()=>mov?{...mov}:{ambito:P.ambito,tipo:'gasto',monto:0,categoria:'',descripcion:'',fecha:hoyStr().slice(0,7)===P.mes?hoyStr():P.mes+'-01',pagado_por:uid,medio:'debito',deuda_id:null});
+  const [busy,setBusy]=useState(false);
+  const set=p=>setF(x=>({...x,...p}));
+  const esAbono=f.tipo==='abono';
+  const cats=esAbono?[]:P.catsDe(f.ambito,f.tipo);
+  // Una compra personal solo puede ir a una tarjeta personal; una de la casa, a cualquiera que yo vea.
+  const tarjetas=datos.deudas.filter(d=>d.tipo==='tarjeta'&&d.activa!==false&&(f.ambito==='casa'||d.ambito==='personal'));
+  const medioVal=f.medio==='tarjeta'&&f.deuda_id?'tc:'+f.deuda_id:f.medio;
+  const setMedio=v=>v.startsWith('tc:')?set({medio:'tarjeta',deuda_id:v.slice(3)}):set({medio:v,deuda_id:null});
+  const ok=f.monto>0&&(esAbono||f.categoria);
+  const guardar=async()=>{
+    setBusy(true);
+    const row={...f,descripcion:(f.descripcion||'').trim()||null};
+    if(f.tipo==='ingreso'){row.medio='debito';row.deuda_id=null;}
+    if(f.ambito==='personal') row.pagado_por=uid;
+    if(await P.guardar('movimientos',row)){P.aviso(mov?'Guardado':'Anotado ✓');onClose();} else setBusy(false);
+  };
+  const eliminar=async()=>{ if(confirm('¿Borrar este movimiento?')&&await P.borrar('movimientos',mov.id)){P.aviso('Borrado');onClose();} };
+  return <Sheet titulo={esAbono?'Pago a deuda':mov?'Editar movimiento':'Nuevo movimiento'} onClose={onClose}>
+    {!esAbono&&<Seg value={f.tipo} onChange={t=>set({tipo:t,categoria:''})} ops={[['gasto','Gasto'],['ingreso','Ingreso']]}/>}
+    <div style={{marginTop:12}}><MontoInput grande autoFocus={!mov} value={f.monto} onChange={v=>set({monto:v})}/></div>
+    {!esAbono&&!mov&&<><label className="lab">¿De quién es?</label>
+      <Seg value={f.ambito} onChange={a=>set({ambito:a,categoria:'',deuda_id:null,medio:f.medio==='tarjeta'?'debito':f.medio})} ops={[['personal','👤 Mío'],['casa','🏠 De la casa']]}/></>}
+    {!esAbono&&<><label className="lab">Categoría</label>
+      <div className="chips">{cats.map(([e,n])=><button key={n} className={'chip'+(f.categoria===n?' on':'')} onClick={()=>set({categoria:n})}>{e} {n}</button>)}</div></>}
+    <label className="lab">Descripción (opcional)</label>
+    <input className="inp" value={f.descripcion||''} onChange={e=>set({descripcion:e.target.value})} placeholder={esAbono?'':'Ej: mercado del D1'}/>
+    <div className="dos">
+      <div><label className="lab">Fecha</label><input className="inp" type="date" value={f.fecha} onChange={e=>e.target.value&&set({fecha:e.target.value})}/></div>
+      {f.tipo==='gasto'&&<div><label className="lab">Pagado con</label>
+        <select className="inp" value={medioVal} onChange={e=>setMedio(e.target.value)}>
+          <option value="debito">Débito / transferencia</option><option value="efectivo">Efectivo</option>
+          {tarjetas.map(t=><option key={t.id} value={'tc:'+t.id}>💳 {t.nombre}</option>)}
+        </select></div>}
+    </div>
+    {f.ambito==='casa'&&f.tipo!=='ingreso'&&<><label className="lab">¿Quién pagó?</label>
+      <Seg value={f.pagado_por} onChange={v=>set({pagado_por:v})} ops={ctx.miembros.map(m=>[m.id,m.id===uid?m.nombre+' (yo)':m.nombre])}/></>}
+    <button className="btn" disabled={!ok||busy} onClick={guardar}>{busy?'Guardando…':'Guardar'}</button>
+    {mov&&<button className="btn del" onClick={eliminar}>Borrar</button>}
+  </Sheet>;
+}
+
+// ───────── Presupuestos ─────────
+function Presupuestos(P){
+  const {datos,ambito,mes}=P;
+  const gastos=datos.movimientos.filter(m=>m.ambito===ambito&&m.tipo==='gasto'&&m.fecha.slice(0,7)===mes);
+  const presu=datos.presupuestos.filter(p=>p.ambito===ambito);
+  const filas=P.catsDe(ambito,'gasto').map(([e,n])=>({e,n,tope:Number((presu.find(p=>p.categoria===n)||{}).monto||0),gastado:suma(gastos.filter(m=>m.categoria===n))}));
+  const con=filas.filter(f=>f.tope>0).sort((a,b)=>b.gastado/b.tope-a.gastado/a.tope), sin=filas.filter(f=>!f.tope);
+  const tot=suma(con,f=>f.tope), gas=suma(con,f=>f.gastado);
+  return <>
+    {con.length>0&&<div className="card hero">
+      <div className="lbl">Presupuesto de {mesNombre(mes)}</div>
+      <div className="big">{fmt(gas)} <span style={{fontSize:16,fontWeight:500}} className="dim">de {fmt(tot)}</span></div>
+      <Barra pct={gas/tot*100}/>
+    </div>}
+    <div className="card">
+      <h3>Con tope mensual</h3>
+      {con.length===0 ? <Vacio e="🎯">Ponle un tope a una categoría y aquí ves cuánto llevas gastado cada mes.</Vacio>
+      : con.map(f=><div className="catrow" key={f.n} onClick={()=>P.abrir({tipo:'presu',cat:f})}>
+          <div className="l"><b>{f.e} {f.n}</b><span className={f.gastado>f.tope?'neg':''}>{fmt(f.gastado)} / {fmt(f.tope)}</span></div>
+          <Barra pct={f.gastado/f.tope*100}/>
+          <div className="nota" style={{marginTop:4}}>{f.gastado>f.tope?'Te pasaste por '+fmt(f.gastado-f.tope):'Quedan '+fmt(f.tope-f.gastado)}</div>
+        </div>)}
+    </div>
+    <div className="card">
+      <h3>Sin tope</h3>
+      {sin.map(f=><div className="fila" key={f.n} onClick={()=>P.abrir({tipo:'presu',cat:f})}>
+        <div className="em">{f.e}</div><div className="tx"><b>{f.n}</b><span>{f.gastado?'Gastado '+fmt(f.gastado):'Sin gastos este mes'}</span></div><div className="mt" style={{color:'var(--acc)'}}>+ Tope</div>
+      </div>)}
+    </div>
+  </>;
+}
+function PresuSheet({cat,onClose,...P}){
+  const actual=P.datos.presupuestos.find(p=>p.ambito===P.ambito&&p.categoria===cat.n);
+  const [monto,setMonto]=useState(cat.tope||0), [busy,setBusy]=useState(false);
+  const guardar=async()=>{
+    setBusy(true);
+    const ok = monto>0 ? await P.guardar('presupuestos',actual?{...actual,monto}:{ambito:P.ambito,categoria:cat.n,monto})
+                       : (actual ? await P.borrar('presupuestos',actual.id) : true);
+    if(ok) onClose(); else setBusy(false);
+  };
+  return <Sheet titulo={cat.e+' '+cat.n} onClose={onClose}>
+    <label className="lab">Tope mensual</label>
+    <MontoInput grande autoFocus value={monto} onChange={setMonto}/>
+    <div className="nota">Este mes llevas {fmt(cat.gastado)} en esta categoría. Deja el tope en $0 para quitarlo.</div>
+    <button className="btn" disabled={busy} onClick={guardar}>Guardar</button>
+  </Sheet>;
+}
+
+// ───────── Deudas ─────────
+function Deudas(P){
+  const {datos,ambito}=P;
+  const deudas=datos.deudas.filter(d=>d.ambito===ambito).map(d=>({...d,saldo:P.saldoDeuda(d)})).sort((a,b)=>b.saldo-a.saldo);
+  const tot=suma(deudas,d=>Math.max(0,d.saldo)), cuotas=suma(deudas.filter(d=>d.saldo>0),d=>d.cuota);
+  const hoy=new Date().getDate();
+  return <>
+    <div className="card hero">
+      <div className="lbl">{ambito==='casa'?'Deudas de la casa':'Mis deudas'}</div>
+      <div className="big">{fmt(tot)}</div>
+      {cuotas>0&&<div className="nota" style={{marginTop:0}}>Cuotas del mes: <b>{fmt(cuotas)}</b></div>}
+    </div>
+    {deudas.length===0&&<Vacio e="💳">Registra aquí tarjetas de crédito, créditos y préstamos para ver cuánto debes y cómo va bajando.</Vacio>}
+    {deudas.map(d=>{
+      const cargos=suma(datos.movimientos.filter(m=>m.deuda_id===d.id&&m.tipo==='gasto')), total=Number(d.monto_inicial)+cargos;
+      const pagado=total-d.saldo, pct=total>0?pagado/total*100:0;
+      const faltan=d.dia_pago?(d.dia_pago>=hoy?d.dia_pago-hoy:null):null;
+      return <div className="card" key={d.id}>
+        <div className="fila" style={{paddingTop:0}} onClick={()=>P.abrir({tipo:'deuda',deuda:d})}>
+          <div className="em">{TIPOS_DEUDA[d.tipo][0]}</div>
+          <div className="tx"><b>{d.nombre}</b><span>{TIPOS_DEUDA[d.tipo][1]}{d.cuota>0?' · cuota '+fmt(d.cuota):''}{d.dia_pago?' · día '+d.dia_pago:''}</span></div>
+          <div className={'mt '+(d.saldo>0?'neg':'pos')}>{d.saldo>0?fmt(d.saldo):'Pagada ✓'}</div>
+        </div>
+        <Barra pct={pct} modo="meta"/>
+        <div className="nota" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span>Pagado {fmt(pagado)} ({Math.round(pct)}%){faltan!==null&&d.saldo>0?(faltan===0?' · ¡se paga hoy!':faltan<=5?' · vence en '+faltan+' día'+(faltan>1?'s':''):''):''}</span>
+          {d.saldo>0&&<button className="btn mini" onClick={()=>P.abrir({tipo:'abono',deuda:d})}>Abonar</button>}
+        </div>
+      </div>;
+    })}
+    <button className="btn sec" onClick={()=>P.abrir({tipo:'deuda'})}>+ Nueva deuda o tarjeta</button>
+  </>;
+}
+function DeudaSheet({deuda,onClose,...P}){
+  const [f,setF]=useState(()=>deuda?{...deuda}:{ambito:P.ambito,nombre:'',tipo:'tarjeta',monto_inicial:0,cuota:0,tasa:'',dia_pago:'',activa:true});
+  const [busy,setBusy]=useState(false);
+  const set=p=>setF(x=>({...x,...p}));
+  const guardar=async()=>{
+    setBusy(true);
+    const {saldo,...row}=f;
+    row.nombre=f.nombre.trim(); row.tasa=f.tasa===''||f.tasa==null?null:Number(f.tasa); row.dia_pago=f.dia_pago===''||f.dia_pago==null?null:Math.min(31,Math.max(1,Number(f.dia_pago)));
+    if(await P.guardar('deudas',row)) onClose(); else setBusy(false);
+  };
+  const eliminar=async()=>{ if(confirm('¿Borrar "'+deuda.nombre+'"? Los pagos ya anotados quedan en tus movimientos.')&&await P.borrar('deudas',deuda.id)) onClose(); };
+  return <Sheet titulo={deuda?'Editar deuda':'Nueva deuda'} onClose={onClose}>
+    <label className="lab">Tipo</label>
+    <div className="chips">{Object.entries(TIPOS_DEUDA).map(([k,[e,n]])=><button key={k} className={'chip'+(f.tipo===k?' on':'')} onClick={()=>set({tipo:k})}>{e} {n}</button>)}</div>
+    <label className="lab">Nombre</label>
+    <input className="inp" value={f.nombre} onChange={e=>set({nombre:e.target.value})} placeholder="Ej: Visa Bancolombia"/>
+    {!deuda&&<><label className="lab">¿De quién es?</label>
+      <Seg value={f.ambito} onChange={a=>set({ambito:a})} ops={[['personal','👤 Mía'],['casa','🏠 De la casa']]}/></>}
+    <label className="lab">{deuda?'Saldo con que la registraste':'¿Cuánto debes hoy?'}</label>
+    <MontoInput value={f.monto_inicial} onChange={v=>set({monto_inicial:v})}/>
+    <div className="dos">
+      <div><label className="lab">Cuota mensual</label><MontoInput value={f.cuota} onChange={v=>set({cuota:v})}/></div>
+      <div><label className="lab">Día de pago</label><input className="inp" inputMode="numeric" value={f.dia_pago??''} onChange={e=>set({dia_pago:e.target.value.replace(/\D/g,'').slice(0,2)})} placeholder="1–31"/></div>
+    </div>
+    <label className="lab">Tasa mensual % (opcional)</label>
+    <input className="inp" inputMode="decimal" value={f.tasa??''} onChange={e=>set({tasa:e.target.value.replace(',','.').replace(/[^\d.]/g,'')})} placeholder="Ej: 2.1"/>
+    {f.tipo==='tarjeta'&&<div className="nota">Al anotar un gasto podrás elegir “pagado con” esta tarjeta y la deuda sube sola.</div>}
+    <button className="btn" disabled={busy||!f.nombre.trim()} onClick={guardar}>Guardar</button>
+    {deuda&&<button className="btn del" onClick={eliminar}>Borrar deuda</button>}
+  </Sheet>;
+}
+function AbonoSheet({deuda,onClose,...P}){
+  const [monto,setMonto]=useState(Math.min(Number(deuda.cuota)||0,Math.max(0,deuda.saldo))), [fecha,setFecha]=useState(hoyStr()), [quien,setQuien]=useState(P.uid), [busy,setBusy]=useState(false);
+  const guardar=async()=>{
+    setBusy(true);
+    const r=await P.guardar('movimientos',{ambito:deuda.ambito,tipo:'abono',monto,categoria:'Pago de deuda',descripcion:deuda.nombre,fecha,pagado_por:deuda.ambito==='casa'?quien:P.uid,medio:'debito',deuda_id:deuda.id});
+    if(r){P.aviso('Abono anotado ✓');onClose();} else setBusy(false);
+  };
+  return <Sheet titulo={'Abonar a '+deuda.nombre} onClose={onClose}>
+    <MontoInput grande autoFocus value={monto} onChange={setMonto}/>
+    <div className="nota" style={{textAlign:'center'}}>Debes {fmt(deuda.saldo)} → quedaría en {fmt(deuda.saldo-monto)}</div>
+    <label className="lab">Fecha</label>
+    <input className="inp" type="date" value={fecha} onChange={e=>e.target.value&&setFecha(e.target.value)}/>
+    {deuda.ambito==='casa'&&<><label className="lab">¿Quién pagó?</label>
+      <Seg value={quien} onChange={setQuien} ops={P.ctx.miembros.map(m=>[m.id,m.nombre])}/></>}
+    <button className="btn" disabled={busy||!(monto>0)} onClick={guardar}>Anotar abono</button>
+  </Sheet>;
+}
+
+// ───────── Metas de ahorro ─────────
+function Metas(P){
+  const {datos,ambito}=P;
+  const metas=datos.metas.filter(m=>m.ambito===ambito).map(m=>({...m,ahorrado:P.ahorradoMeta(m)}));
+  const tot=suma(metas,m=>m.ahorrado);
+  return <>
+    <div className="card hero">
+      <div className="lbl">{ambito==='casa'?'Ahorro de la casa':'Mi ahorro'}</div>
+      <div className="big">{fmt(tot)}</div>
+    </div>
+    {metas.length===0&&<Vacio e="🐷">Crea una meta (viaje, fondo de emergencia, cuota inicial…) y ve sumando aportes.</Vacio>}
+    {metas.map(m=>{
+      const pct=m.objetivo>0?m.ahorrado/m.objetivo*100:0, falta=Math.max(0,m.objetivo-m.ahorrado);
+      let plan='';
+      if(m.fecha_meta&&falta>0){ const h=new Date(), f=new Date(m.fecha_meta+'T12:00:00'); const meses=Math.max(1,(f.getFullYear()-h.getFullYear())*12+f.getMonth()-h.getMonth()+(f.getDate()>=h.getDate()?0:-1)+1);
+        plan = f<h ? ' · la fecha ya pasó' : ' · '+fmt(falta/meses)+' al mes para llegar'; }
+      return <div className="card" key={m.id}>
+        <div className="fila" style={{paddingTop:0}} onClick={()=>P.abrir({tipo:'meta',meta:m})}>
+          <div className="em">{m.emoji||'🎯'}</div>
+          <div className="tx"><b>{m.nombre}</b><span>{m.objetivo>0?'Meta '+fmt(m.objetivo):'Sin monto objetivo'}{m.fecha_meta?' · '+new Date(m.fecha_meta+'T12:00:00').toLocaleDateString('es-CO',{day:'numeric',month:'short',year:'numeric'}):''}</span></div>
+          <div className="mt pos">{fmt(m.ahorrado)}</div>
+        </div>
+        {m.objetivo>0&&<Barra pct={pct} modo="meta"/>}
+        <div className="nota" style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+          <span>{m.objetivo>0?(falta>0?Math.round(pct)+'% · faltan '+fmt(falta)+plan:'¡Meta cumplida! 🎉'):''}</span>
+          <button className="btn mini" onClick={()=>P.abrir({tipo:'aporte',meta:m})}>Aportar</button>
+        </div>
+      </div>;
+    })}
+    <button className="btn sec" onClick={()=>P.abrir({tipo:'meta'})}>+ Nueva meta</button>
+  </>;
+}
+function MetaSheet({meta,onClose,...P}){
+  const [f,setF]=useState(()=>meta?{...meta}:{ambito:P.ambito,nombre:'',emoji:'🎯',objetivo:0,fecha_meta:''});
+  const [busy,setBusy]=useState(false);
+  const set=p=>setF(x=>({...x,...p}));
+  const aportes=meta?P.datos.meta_aportes.filter(a=>a.meta_id===meta.id).sort((a,b)=>b.fecha.localeCompare(a.fecha)):[];
+  const guardar=async()=>{ setBusy(true); const {ahorrado,...row}=f; row.nombre=f.nombre.trim(); row.fecha_meta=f.fecha_meta||null; if(await P.guardar('metas',row)) onClose(); else setBusy(false); };
+  const eliminar=async()=>{ if(confirm('¿Borrar la meta "'+meta.nombre+'" y sus aportes?')&&await P.borrar('metas',meta.id)) onClose(); };
+  return <Sheet titulo={meta?'Editar meta':'Nueva meta'} onClose={onClose}>
+    <div className="chips">{['🎯','✈️','🛟','🏠','🚗','🎓','💍','👶','🎄','💻'].map(e=><button key={e} className={'chip'+(f.emoji===e?' on':'')} onClick={()=>set({emoji:e})}>{e}</button>)}</div>
+    <label className="lab">Nombre</label>
+    <input className="inp" value={f.nombre} onChange={e=>set({nombre:e.target.value})} placeholder="Ej: Viaje a San Andrés"/>
+    {!meta&&<><label className="lab">¿De quién es?</label>
+      <Seg value={f.ambito} onChange={a=>set({ambito:a})} ops={[['personal','👤 Mía'],['casa','🏠 De la casa']]}/></>}
+    <div className="dos">
+      <div><label className="lab">¿Cuánto quieres juntar?</label><MontoInput value={f.objetivo} onChange={v=>set({objetivo:v})}/></div>
+      <div><label className="lab">¿Para cuándo?</label><input className="inp" type="date" value={f.fecha_meta||''} onChange={e=>set({fecha_meta:e.target.value})}/></div>
+    </div>
+    <button className="btn" disabled={busy||!f.nombre.trim()} onClick={guardar}>Guardar</button>
+    {aportes.length>0&&<><label className="lab">Aportes</label>
+      {aportes.map(a=><div className="fila" key={a.id}>
+        <div className="tx"><b>{new Date(a.fecha+'T12:00:00').toLocaleDateString('es-CO',{day:'numeric',month:'short',year:'numeric'})}</b><span>{meta.ambito==='casa'?P.nombreDe(a.usuario_id):''}{a.nota?' '+a.nota:''}</span></div>
+        <div className={'mt '+(a.monto<0?'neg':'pos')}>{a.monto<0?'':'+'}{fmt(a.monto)}</div>
+        <button className="ico-btn" onClick={async()=>{ if(confirm('¿Borrar este aporte?')) await P.borrar('meta_aportes',a.id); }}>🗑</button>
+      </div>)}</>}
+    {meta&&<button className="btn del" onClick={eliminar}>Borrar meta</button>}
+  </Sheet>;
+}
+function AporteSheet({meta,onClose,...P}){
+  const [modo,setModo]=useState('aporte'), [monto,setMonto]=useState(0), [fecha,setFecha]=useState(hoyStr()), [busy,setBusy]=useState(false);
+  const guardar=async()=>{
+    setBusy(true);
+    if(await P.guardar('meta_aportes',{ambito:meta.ambito,meta_id:meta.id,monto:modo==='retiro'?-monto:monto,fecha,nota:null})){P.aviso(modo==='retiro'?'Retiro anotado':'Aporte anotado ✓');onClose();} else setBusy(false);
+  };
+  return <Sheet titulo={(meta.emoji||'🎯')+' '+meta.nombre} onClose={onClose}>
+    <Seg value={modo} onChange={setModo} ops={[['aporte','Aportar'],['retiro','Retirar']]}/>
+    <div style={{marginTop:12}}><MontoInput grande autoFocus value={monto} onChange={setMonto}/></div>
+    <div className="nota" style={{textAlign:'center'}}>Llevas {fmt(meta.ahorrado)} → quedaría en {fmt(meta.ahorrado+(modo==='retiro'?-monto:monto))}</div>
+    <label className="lab">Fecha</label>
+    <input className="inp" type="date" value={fecha} onChange={e=>e.target.value&&setFecha(e.target.value)}/>
+    <button className="btn" disabled={busy||!(monto>0)} onClick={guardar}>Guardar</button>
+  </Sheet>;
+}
+
+// ───────── Ajustes ─────────
+function Ajustes({onClose,onSalir,onNombre,...P}){
+  const {ctx,datos,uid}=P;
+  const [nombre,setNombre]=useState(ctx.perfil.nombre);
+  const [nc,setNc]=useState({emoji:'',nombre:'',tipo:'gasto',ambito:P.ambito});
+  const guardarNombre=async()=>{ try{ await db.setNombre(nombre.trim()); onNombre(nombre.trim()); P.aviso('Nombre actualizado'); }catch(e){P.aviso(msgErr(e));} };
+  const addCat=async()=>{
+    const n=nc.nombre.trim(); if(!n) return;
+    if(P.catsDe(nc.ambito,nc.tipo).some(c=>c[1].toLowerCase()===n.toLowerCase())) return P.aviso('Esa categoría ya existe');
+    if(await P.guardar('categorias',{ambito:nc.ambito,tipo:nc.tipo,nombre:n,emoji:nc.emoji.trim()||'🏷️'})) setNc({...nc,nombre:'',emoji:''});
+  };
+  return <Sheet titulo="Ajustes" onClose={onClose}>
+    <label className="lab">Tu nombre</label>
+    <div style={{display:'flex',gap:8}}>
+      <input className="inp" value={nombre} disabled={DEMO} onChange={e=>setNombre(e.target.value)}/>
+      {!DEMO&&<button className="btn mini" disabled={!nombre.trim()||nombre.trim()===ctx.perfil.nombre} onClick={guardarNombre}>Guardar</button>}
+    </div>
+
+    <label className="lab">{ctx.hogar.nombre} · {ctx.miembros.map(m=>m.nombre).join(' y ')}</label>
+    {!DEMO&&<><div className="codigo">{ctx.hogar.codigo}</div>
+      <div className="nota">Código de invitación: tu pareja crea su cuenta y lo escribe para entrar a esta casa. Lo personal de cada uno sigue siendo privado.</div></>}
+
+    <label className="lab">Categorías propias</label>
+    {datos.categorias.length===0&&<div className="nota" style={{marginTop:0}}>Aún no has creado ninguna.</div>}
+    {datos.categorias.map(c=><div className="fila" key={c.id}>
+      <div className="em">{c.emoji||'🏷️'}</div>
+      <div className="tx"><b>{c.nombre}</b><span>{c.tipo==='gasto'?'Gasto':'Ingreso'} · {c.ambito==='casa'?'De la casa':'Mía'}</span></div>
+      <button className="ico-btn" onClick={async()=>{ if(confirm('¿Quitar la categoría "'+c.nombre+'"? Los movimientos que ya la usan no se borran.')) await P.borrar('categorias',c.id); }}>🗑</button>
+    </div>)}
+    <div style={{display:'flex',gap:8,marginTop:10}}>
+      <input className="inp" style={{width:64,textAlign:'center'}} placeholder="🏷️" value={nc.emoji} onChange={e=>setNc({...nc,emoji:e.target.value})}/>
+      <input className="inp" placeholder="Nueva categoría" value={nc.nombre} onChange={e=>setNc({...nc,nombre:e.target.value})}/>
+    </div>
+    <div className="dos" style={{marginTop:8}}>
+      <Seg value={nc.tipo} onChange={t=>setNc({...nc,tipo:t})} ops={[['gasto','Gasto'],['ingreso','Ingreso']]}/>
+      <Seg value={nc.ambito} onChange={a=>setNc({...nc,ambito:a})} ops={[['personal','👤 Mía'],['casa','🏠 Casa']]}/>
+    </div>
+    <button className="btn sec" disabled={!nc.nombre.trim()} onClick={addCat}>+ Agregar categoría</button>
+
+    {DEMO&&<button className="btn sec" onClick={()=>{ if(confirm('¿Volver a los datos de ejemplo iniciales?')){ try{localStorage.removeItem('fin_demo');}catch(e){} location.reload(); } }}>Reiniciar datos de ejemplo</button>}
+    <button className="btn del" onClick={onSalir}>{DEMO?'Cambiar de persona':'Cerrar sesión'}</button>
+  </Sheet>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

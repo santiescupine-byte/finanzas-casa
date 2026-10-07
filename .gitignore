@@ -1,0 +1,8 @@
+# Repo PÚBLICO: lista blanca. Solo se sube lo que la app necesita para correr.
+*
+!.gitignore
+!index.html
+!sw.js
+!manifest.json
+!icon-192.png
+!icon-512.png
